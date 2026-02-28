@@ -3,7 +3,7 @@ Muscle Mate API - FastAPI エントリーポイント
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.routers import workout
+from src.routers import workout, visualizer
 
 app = FastAPI(
     title="Muscle Mate API",
@@ -20,6 +20,7 @@ app.add_middleware(
 )
 
 app.include_router(workout.router)
+app.include_router(visualizer.router)
 
 
 @app.get("/health")
