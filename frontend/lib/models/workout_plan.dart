@@ -49,6 +49,27 @@ enum Equipment {
 
 // ── リクエストモデル: Flutter → FastAPI ──────────────────────────────────────
 
+class Big3Max {
+  final double? benchPressMax;
+  final double? squatMax;
+  final double? deadliftMax;
+
+  const Big3Max({
+    this.benchPressMax,
+    this.squatMax,
+    this.deadliftMax,
+  });
+
+  bool get hasAny =>
+      benchPressMax != null || squatMax != null || deadliftMax != null;
+
+  Map<String, dynamic> toJson() => {
+        if (benchPressMax != null) 'bench_press_max': benchPressMax,
+        if (squatMax != null) 'squat_max': squatMax,
+        if (deadliftMax != null) 'deadlift_max': deadliftMax,
+      };
+}
+
 class WorkoutRequest {
   final Goal goal;
   final Level level;
@@ -56,6 +77,7 @@ class WorkoutRequest {
   final List<Equipment> equipment;
   final int? age;
   final String? notes;
+  final Big3Max? big3Max;
 
   const WorkoutRequest({
     required this.goal,
@@ -64,6 +86,7 @@ class WorkoutRequest {
     required this.equipment,
     this.age,
     this.notes,
+    this.big3Max,
   });
 
   Map<String, dynamic> toJson() => {
@@ -73,6 +96,7 @@ class WorkoutRequest {
         'equipment': equipment.map((e) => e.value).toList(),
         if (age != null) 'age': age,
         if (notes != null && notes!.isNotEmpty) 'notes': notes,
+        if (big3Max != null && big3Max!.hasAny) 'big3_max': big3Max!.toJson(),
       };
 }
 
@@ -87,6 +111,7 @@ class Exercise {
   final Equipment equipment;
   final List<String> targetMuscles;
   final String coachingPoint;
+  final double? weightKg; // BIG3 MAXから算出されたトレーニング重量
 
   const Exercise({
     required this.nameJa,
@@ -97,6 +122,7 @@ class Exercise {
     required this.equipment,
     required this.targetMuscles,
     required this.coachingPoint,
+    this.weightKg,
   });
 
   factory Exercise.fromJson(Map<String, dynamic> json) => Exercise(
@@ -108,6 +134,7 @@ class Exercise {
         equipment: Equipment.fromValue(json['equipment'] as String),
         targetMuscles: List<String>.from(json['target_muscles'] as List),
         coachingPoint: json['coaching_point'] as String,
+        weightKg: (json['weight_kg'] as num?)?.toDouble(),
       );
 }
 

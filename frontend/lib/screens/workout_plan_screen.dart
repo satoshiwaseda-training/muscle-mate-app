@@ -96,6 +96,16 @@ class _ExerciseTile extends StatelessWidget {
             '${exercise.sets}セット × ${exercise.reps}  |  インターバル ${exercise.restSeconds}秒',
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),
+          if (exercise.weightKg != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              '推奨重量: ${exercise.weightKg!.toStringAsFixed(1)} kg',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ],
           const SizedBox(height: 4),
           Text(
             exercise.coachingPoint,

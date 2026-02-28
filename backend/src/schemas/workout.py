@@ -61,6 +61,16 @@ class MuscleGroup(str, Enum):
 
 # ── リクエスト: Flutter → FastAPI ────────────────────────────────────────────
 
+class Big3Max(BaseModel):
+    """BIG3の現在のMAX重量（kg）"""
+    bench_press_max: Optional[float] = Field(None, ge=0, le=500, description="ベンチプレス MAX (kg)")
+    squat_max: Optional[float] = Field(None, ge=0, le=500, description="スクワット MAX (kg)")
+    deadlift_max: Optional[float] = Field(None, ge=0, le=500, description="デッドリフト MAX (kg)")
+
+    def has_any(self) -> bool:
+        return any([self.bench_press_max, self.squat_max, self.deadlift_max])
+
+
 class WorkoutRequest(BaseModel):
     """ユーザーが入力する情報"""
     goal: Goal = Field(..., description="トレーニング目標")
@@ -69,6 +79,7 @@ class WorkoutRequest(BaseModel):
     equipment: List[Equipment] = Field(..., min_length=1, description="使用可能な器具")
     age: Optional[int] = Field(None, ge=10, le=100, description="年齢")
     notes: Optional[str] = Field(None, max_length=500, description="特記事項（怪我など）")
+    big3_max: Optional[Big3Max] = Field(None, description="BIG3のMAX重量（入力すれば重量が個別に算出される）")
 
     @field_validator("equipment")
     @classmethod
@@ -90,6 +101,7 @@ class Exercise(BaseModel):
     equipment: Equipment = Field(..., description="使用器具")
     target_muscles: List[MuscleGroup] = Field(..., min_length=1, description="主動筋")
     coaching_point: str = Field(..., description="フォームのコツ・注意点")
+    weight_kg: Optional[float] = Field(None, ge=0, description="推奨重量 (kg)。MAX重量が不明な場合はnull")
 
 
 class DaySession(BaseModel):
@@ -146,7 +158,8 @@ GEMINI_JSON_SCHEMA = """
           "rest_seconds": integer,
           "equipment": "barbell|dumbbell|machine|bodyweight|cable|kettlebell",
           "target_muscles": ["muscle_group"],
-          "coaching_point": "string"
+          "coaching_point": "string",
+          "weight_kg": number_or_null
         }
       ]
     }
@@ -154,3 +167,11 @@ GEMINI_JSON_SCHEMA = """
   "general_advice": "string"
 }
 """
+
+# 目標別のトレーニング強度テーブル（%1RM）
+INTENSITY_TABLE = {
+    "muscle_gain":    {"label": "筋肥大",   "range": (70, 85), "primary": 77.5},
+    "weight_loss":    {"label": "減量",     "range": (60, 75), "primary": 67.5},
+    "endurance":      {"label": "持久力",   "range": (50, 70), "primary": 60.0},
+    "general_fitness":{"label": "総合体力", "range": (65, 80), "primary": 72.5},
+}
