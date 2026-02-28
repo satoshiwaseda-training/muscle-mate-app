@@ -1,4 +1,4 @@
-/// 筋トレメニューの Dart モデル
+// 筋トレメニューの Dart モデル
 /// backend/src/schemas/workout.py の WorkoutPlan と完全対応
 /// fromJson / toJson で安全なシリアライズを保証
 

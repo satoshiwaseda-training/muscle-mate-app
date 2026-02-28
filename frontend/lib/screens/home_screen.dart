@@ -1,4 +1,4 @@
-/// ホーム画面：ユーザー情報入力 → ワークアウトプラン生成
+// ホーム画面：ユーザー情報入力 → ワークアウトプラン生成
 /// BIG3 MAXを入力すると個人のMAX重量に基づいた重量がメニューに反映される
 import 'package:flutter/material.dart';
 import '../models/workout_plan.dart';

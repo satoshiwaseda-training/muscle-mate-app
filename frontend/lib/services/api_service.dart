@@ -1,27 +1,22 @@
-/// FastAPI バックエンドとの通信サービス
+// FastAPI バックエンドとの通信サービス
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/workout_plan.dart';
 
 class ApiService {
-  // Codespace で起動した FastAPI のURL（開発時）
-  // 本番はプロダクションのURLに切り替える
   static const String _baseUrl = 'http://localhost:8000';
 
   static Future<WorkoutResponse> generateWorkoutPlan(
       WorkoutRequest request) async {
     final uri = Uri.parse('$_baseUrl/workout/generate');
-
     try {
       final response = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(request.toJson()),
       );
-
-      final body = jsonDecode(utf8.decode(response.bodyBytes))
-          as Map<String, dynamic>;
-
+      final body =
+          jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
       if (response.statusCode == 200) {
         return WorkoutResponse.fromJson(body);
       } else {
@@ -32,10 +27,25 @@ class ApiService {
         );
       }
     } catch (e) {
-      return WorkoutResponse(
-        success: false,
-        errorMessage: '通信エラー: $e',
-      );
+      return WorkoutResponse(success: false, errorMessage: '通信エラー: $e');
     }
+  }
+
+  /// 総挙上重量をエンタメ変換して返す
+  static Future<Map<String, dynamic>?> getEntertainment(
+      double totalKg) async {
+    final uri = Uri.parse('$_baseUrl/workout/entertainment');
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'total_kg': totalKg}),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(utf8.decode(response.bodyBytes))
+            as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return null;
   }
 }
