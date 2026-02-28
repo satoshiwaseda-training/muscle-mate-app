@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git push origin main:*)",
+      "Bash(.venv/Scripts/python:*)",
+      "Bash(PYTHONUTF8=1 .venv/Scripts/python:*)",
+      "Bash(.venv/Scripts/pip:*)",
+      "Bash(.venv/Scripts/uvicorn:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(flutter build:*)",
+      "Bash(flutter create:*)",
+      "Bash(flutter pub get:*)",
+      "Bash(flutter run:*)",
+      "Bash(flutter clean:*)",
+      "Bash(flutter test:*)",
+      "Bash(pip install:*)",
+      "Bash(python -m:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(start:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)"
+    ]
+  }
+}
