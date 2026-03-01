@@ -33,6 +33,9 @@ from typing import Optional
 
 # Blender 実行ファイルのパス候補（OS別）
 _BLENDER_CANDIDATES = [
+    r"C:\Program Files\Blender Foundation\Blender 5.0\blender.exe",
+    r"C:\Program Files\Blender Foundation\Blender 4.4\blender.exe",
+    r"C:\Program Files\Blender Foundation\Blender 4.3\blender.exe",
     r"C:\Program Files\Blender Foundation\Blender 4.2\blender.exe",
     r"C:\Program Files\Blender Foundation\Blender 4.1\blender.exe",
     r"C:\Program Files\Blender Foundation\Blender 4.0\blender.exe",

@@ -49,36 +49,36 @@ def _load_args() -> dict:
 
 def _intensity_to_color(intensity: float) -> tuple[float, float, float]:
     """
-    強度 0.0〜1.0 を色に変換:
-      0.0  → 暗いグレー (#1A1A2E)
-      0.3  → ダークブルー (#16213E)
-      0.6  → オレンジ (#FF6D00)
-      0.85 → 鮮やかなレッド (#FF1744)
-      1.0  → ホワイトホット (#FFFFFF + bloom)
+    強度 0.0〜1.0 を Blender Linear color space の色に変換:
+      0.0  → 暗い青黒
+      0.4  → 深いブルー→オレンジへ遷移
+      0.7  → 鮮やかなオレンジ
+      0.9  → 真っ赤
+      1.0  → ホワイトホット（オーバーブライト）
     """
-    if intensity < 0.3:
-        t = intensity / 0.3
-        r = 0.10 + 0.05 * t
-        g = 0.10 + 0.03 * t
-        b = 0.18 + 0.12 * t
-    elif intensity < 0.6:
-        t = (intensity - 0.3) / 0.3
-        r = 0.15 + 0.85 * t
-        g = 0.13 + 0.30 * t
-        b = 0.30 - 0.28 * t
-    elif intensity < 0.85:
-        t = (intensity - 0.6) / 0.25
+    if intensity < 0.4:
+        t = intensity / 0.4
+        r = 0.01 + 0.09 * t
+        g = 0.01 + 0.05 * t
+        b = 0.05 + 0.20 * t
+    elif intensity < 0.7:
+        t = (intensity - 0.4) / 0.3
+        r = 0.10 + 0.90 * t   # → 1.0
+        g = 0.06 + 0.21 * t   # → 0.27
+        b = 0.25 - 0.24 * t   # → 0.01
+    elif intensity < 0.9:
+        t = (intensity - 0.7) / 0.2
         r = 1.0
-        g = 0.43 - 0.43 * t
-        b = 0.02
+        g = 0.27 - 0.27 * t   # → 0
+        b = 0.01
     else:
-        t = (intensity - 0.85) / 0.15
+        t = (intensity - 0.9) / 0.1
         r = 1.0
         g = 0.0 + 1.0 * t
         b = 0.0 + 1.0 * t
 
-    # Emission 強度に応じてブルーム感を出す (linear space)
-    bloom = 1.0 + intensity * 2.0
+    # Emission オーバーブライトでブルームが乗る
+    bloom = 1.5 + intensity * 3.5
     return (r * bloom, g * bloom, b * bloom)
 
 
@@ -95,24 +95,24 @@ def _emission_strength(intensity: float) -> float:
 # ヘッドレスではプロシージャルに分割する
 
 _MUSCLE_ZONES = {
-    # name: (center_x, center_y, center_z, size_x, size_y, size_z)
-    # Blender座標系: Z=上, Y=前, X=右
-    "chest":      ( 0.00,  0.15,  0.40, 0.30, 0.10, 0.22),
-    "back":       ( 0.00, -0.15,  0.30, 0.30, 0.10, 0.30),
-    "shoulders_l":(-0.28,  0.00,  0.52, 0.12, 0.12, 0.12),
-    "shoulders_r":( 0.28,  0.00,  0.52, 0.12, 0.12, 0.12),
-    "biceps_l":   (-0.30,  0.05,  0.28, 0.08, 0.08, 0.18),
-    "biceps_r":   ( 0.30,  0.05,  0.28, 0.08, 0.08, 0.18),
-    "triceps_l":  (-0.30, -0.05,  0.28, 0.08, 0.08, 0.18),
-    "triceps_r":  ( 0.30, -0.05,  0.28, 0.08, 0.08, 0.18),
-    "core":       ( 0.00,  0.10,  0.16, 0.22, 0.10, 0.20),
-    "quads_l":    (-0.12,  0.08, -0.20, 0.10, 0.10, 0.28),
-    "quads_r":    ( 0.12,  0.08, -0.20, 0.10, 0.10, 0.28),
-    "hamstrings_l":(-0.12,-0.08, -0.20, 0.10, 0.10, 0.28),
-    "hamstrings_r":( 0.12,-0.08, -0.20, 0.10, 0.10, 0.28),
-    "glutes":     ( 0.00, -0.18, -0.02, 0.24, 0.12, 0.16),
-    "calves_l":   (-0.10, -0.05, -0.58, 0.07, 0.07, 0.18),
-    "calves_r":   ( 0.10, -0.05, -0.58, 0.07, 0.07, 0.18),
+    # name: (center_x, center_y, center_z, scale_x, scale_y, scale_z)
+    # 新ボディ座標系に合わせた配置
+    "chest":       ( 0.00,  0.16,  0.44, 0.20, 0.07, 0.18),  # 胸郭前面
+    "back":        ( 0.00, -0.16,  0.38, 0.20, 0.07, 0.22),  # 背面
+    "shoulders_l": (-0.28,  0.00,  0.56, 0.09, 0.09, 0.09),
+    "shoulders_r": ( 0.28,  0.00,  0.56, 0.09, 0.09, 0.09),
+    "biceps_l":    (-0.31,  0.06,  0.38, 0.07, 0.07, 0.16),
+    "biceps_r":    ( 0.31,  0.06,  0.38, 0.07, 0.07, 0.16),
+    "triceps_l":   (-0.31, -0.06,  0.38, 0.07, 0.07, 0.16),
+    "triceps_r":   ( 0.31, -0.06,  0.38, 0.07, 0.07, 0.16),
+    "core":        ( 0.00,  0.13,  0.18, 0.16, 0.07, 0.18),  # 腹直筋
+    "quads_l":     (-0.11,  0.09, -0.25, 0.10, 0.10, 0.24),  # 大腿前面
+    "quads_r":     ( 0.11,  0.09, -0.25, 0.10, 0.10, 0.24),
+    "hamstrings_l":(-0.11, -0.09, -0.25, 0.10, 0.10, 0.24),  # 大腿後面
+    "hamstrings_r":( 0.11, -0.09, -0.25, 0.10, 0.10, 0.24),
+    "glutes":      ( 0.00, -0.16,  0.00, 0.20, 0.10, 0.13),  # 臀部
+    "calves_l":    (-0.10, -0.05, -0.68, 0.07, 0.07, 0.17),
+    "calves_r":    ( 0.10, -0.05, -0.68, 0.07, 0.07, 0.17),
 }
 
 # 筋肉グループ → ゾーン名のマッピング（対称展開）
@@ -141,62 +141,86 @@ def clear_scene():
         bpy.data.materials.remove(block)
 
 
+def _add_capsule(name: str, loc: tuple, scale: tuple, rot=(0,0,0)) -> bpy.types.Object:
+    """UV球2個+円柱でカプセルを作成してメッシュ変換"""
+    bpy.ops.mesh.primitive_cylinder_add(
+        vertices=16, radius=1.0, depth=1.0, location=loc
+    )
+    obj = bpy.context.active_object
+    obj.name = name
+    obj.scale = scale
+    if any(rot):
+        obj.rotation_euler = rot
+    bpy.ops.object.shade_smooth()
+    return obj
+
+
 def create_body_base() -> bpy.types.Object:
-    """人体の基本形状をプロシージャルに構築する"""
-    # メタボール (Metaball) で有機的な人体シルエットを作成
-    bpy.ops.object.metaball_add(type='CAPSULE', location=(0, 0, 0))
-    torso = bpy.context.active_object
-    torso.name = "Body_Torso"
-    torso.data.resolution = 0.08
-    torso.scale = (0.28, 0.18, 0.48)
+    """
+    プリミティブメッシュで明確な人体シルエットを構築する。
+    Metaball を廃棄して円柱+球の直接配置に変更。
+    比率はサトシさん (180cm, マッチョ体型) を参考にした。
+    """
+    parts = []
 
-    # 骨盤
-    bpy.ops.object.metaball_add(type='CAPSULE', location=(0, 0, -0.06))
-    pelvis = bpy.context.active_object
-    pelvis.name = "Body_Pelvis"
-    pelvis.scale = (0.24, 0.17, 0.28)
-
-    # 頭
-    bpy.ops.object.metaball_add(type='BALL', location=(0, 0, 0.82))
+    # ── 頭 ──────────────────────────────────────────────────
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.12, location=(0, 0, 0.88))
     head = bpy.context.active_object
-    head.name = "Body_Head"
-    head.scale = (0.13, 0.13, 0.16)
+    head.name = "B_Head"
+    head.scale = (1.0, 0.95, 1.1)
+    bpy.ops.object.shade_smooth()
+    parts.append(head)
 
-    # 首
-    bpy.ops.object.metaball_add(type='CAPSULE', location=(0, 0, 0.68))
-    neck = bpy.context.active_object
-    neck.name = "Body_Neck"
-    neck.scale = (0.07, 0.07, 0.10)
+    # ── 首 ──────────────────────────────────────────────────
+    parts.append(_add_capsule("B_Neck", (0, 0, 0.72), (0.055, 0.055, 0.09)))
 
-    # 腕（左右）
-    for side, x in [("L", -0.35), ("R", 0.35)]:
-        bpy.ops.object.metaball_add(type='CAPSULE', location=(x, 0, 0.35))
-        arm_upper = bpy.context.active_object
-        arm_upper.name = f"Body_Arm_Upper_{side}"
-        arm_upper.scale = (0.07, 0.07, 0.20)
-        arm_upper.rotation_euler.z = math.radians(90 if side == "L" else -90) * 0.3
+    # ── 胸郭（上体）─────────────────────────────────────────
+    parts.append(_add_capsule("B_Chest", (0, 0, 0.44), (0.20, 0.14, 0.24)))
 
-        bpy.ops.object.metaball_add(type='CAPSULE', location=(x * 1.05, 0, 0.10))
-        arm_lower = bpy.context.active_object
-        arm_lower.name = f"Body_Arm_Lower_{side}"
-        arm_lower.scale = (0.06, 0.06, 0.18)
+    # ── 腹部 ────────────────────────────────────────────────
+    parts.append(_add_capsule("B_Abdomen", (0, 0, 0.20), (0.16, 0.12, 0.18)))
 
-    # 脚（左右）
-    for side, x in [("L", -0.13), ("R", 0.13)]:
-        bpy.ops.object.metaball_add(type='CAPSULE', location=(x, 0, -0.30))
-        leg_upper = bpy.context.active_object
-        leg_upper.name = f"Body_Leg_Upper_{side}"
-        leg_upper.scale = (0.11, 0.11, 0.28)
+    # ── 骨盤 ────────────────────────────────────────────────
+    parts.append(_add_capsule("B_Pelvis", (0, 0, 0.01), (0.18, 0.13, 0.13)))
 
-        bpy.ops.object.metaball_add(type='CAPSULE', location=(x, 0, -0.68))
-        leg_lower = bpy.context.active_object
-        leg_lower.name = f"Body_Leg_Lower_{side}"
-        leg_lower.scale = (0.08, 0.08, 0.22)
+    # ── 肩（左右）──────────────────────────────────────────
+    for x in [-0.26, 0.26]:
+        parts.append(_add_capsule(f"B_Shoulder_{'L' if x<0 else 'R'}",
+                                  (x, 0, 0.56), (0.07, 0.07, 0.07)))
 
-    # 全 Metaball を結合してメッシュ変換
-    bpy.ops.object.select_all(action='SELECT')
-    bpy.context.view_layer.objects.active = torso
-    bpy.ops.object.convert(target='MESH')
+    # ── 上腕（左右）────────────────────────────────────────
+    for x in [-0.30, 0.30]:
+        parts.append(_add_capsule(f"B_UpperArm_{'L' if x<0 else 'R'}",
+                                  (x*1.05, 0, 0.38), (0.06, 0.06, 0.18)))
+
+    # ── 前腕（左右）────────────────────────────────────────
+    for x in [-0.30, 0.30]:
+        parts.append(_add_capsule(f"B_ForeArm_{'L' if x<0 else 'R'}",
+                                  (x*1.06, 0, 0.16), (0.05, 0.05, 0.15)))
+
+    # ── 大腿（左右）────────────────────────────────────────
+    for x in [-0.11, 0.11]:
+        parts.append(_add_capsule(f"B_Thigh_{'L' if x<0 else 'R'}",
+                                  (x, 0, -0.25), (0.10, 0.10, 0.25)))
+
+    # ── 膝（左右）──────────────────────────────────────────
+    for x in [-0.11, 0.11]:
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=0.08, location=(x, 0, -0.50))
+        knee = bpy.context.active_object
+        knee.name = f"B_Knee_{'L' if x<0 else 'R'}"
+        bpy.ops.object.shade_smooth()
+        parts.append(knee)
+
+    # ── 下腿（左右）────────────────────────────────────────
+    for x in [-0.10, 0.10]:
+        parts.append(_add_capsule(f"B_Shin_{'L' if x<0 else 'R'}",
+                                  (x, 0, -0.70), (0.07, 0.07, 0.19)))
+
+    # 全パーツを Join
+    bpy.ops.object.select_all(action='DESELECT')
+    for p in parts:
+        p.select_set(True)
+    bpy.context.view_layer.objects.active = parts[0]
     bpy.ops.object.join()
     body = bpy.context.active_object
     body.name = "HumanBody"
@@ -234,40 +258,49 @@ def create_muscle_object(
     cx, cy, cz, sx, sy, sz = (*center, *size)
 
     bpy.ops.mesh.primitive_uv_sphere_add(
-        segments=16, ring_count=8,
+        segments=20, ring_count=10,
         radius=1.0,
         location=(cx, cy, cz),
     )
     obj = bpy.context.active_object
     obj.name = f"Muscle_{zone_key}"
     obj.scale = (sx, sy, sz)
-
-    # Smooth shading
     bpy.ops.object.shade_smooth()
 
-    # Emission マテリアル
+    # Emission のみのシンプルなマテリアル（よりクリアな発光感）
     mat = bpy.data.materials.new(name=f"Mat_{zone_key}")
-    mat.use_nodes = True
+    try:
+        mat.use_nodes = True
+    except Exception:
+        pass
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
     nodes.clear()
 
-    # Principled BSDF + Emission の混合
-    bsdf = nodes.new('ShaderNodeBsdfPrincipled')
-    bsdf.location = (-200, 100)
     r, g, b = color_rgb
-    bsdf.inputs["Base Color"].default_value = (min(r, 1.0), min(g, 1.0), min(b, 1.0), 1.0)
-    bsdf.inputs["Roughness"].default_value = 0.3
-    bsdf.inputs["Metallic"].default_value = 0.05
 
+    # Principled BSDF（ベース）
+    bsdf = nodes.new('ShaderNodeBsdfPrincipled')
+    bsdf.location = (-300, 100)
+    # Base Color は強度を抑えた版（clamped）
+    bc = min(r * 0.3, 1.0), min(g * 0.3, 1.0), min(b * 0.3, 1.0)
+    bsdf.inputs["Base Color"].default_value = (*bc, 1.0)
+    bsdf.inputs["Roughness"].default_value = 0.25
+    bsdf.inputs["Metallic"].default_value = 0.08
+
+    # Emission（高輝度、bloom素材）
     emission = nodes.new('ShaderNodeEmission')
-    emission.location = (-200, -100)
-    emission.inputs["Color"].default_value = (r, g, b, 1.0)
-    emission.inputs["Strength"].default_value = emission_strength
+    emission.location = (-300, -100)
+    emission.inputs["Color"].default_value = (
+        min(r, 10.0), min(g, 10.0), min(b, 10.0), 1.0
+    )
+    emission.inputs["Strength"].default_value = emission_strength * 1.5
 
+    # MixShader: 強度が高いほど Emission 比率を増加
+    fac = min(0.3 + (emission_strength / 5.0) * 0.6, 0.95)
     mix = nodes.new('ShaderNodeMixShader')
     mix.location = (0, 0)
-    mix.inputs["Fac"].default_value = 0.4  # 40% Emission, 60% BSDF
+    mix.inputs["Fac"].default_value = fac
 
     output = nodes.new('ShaderNodeOutputMaterial')
     output.location = (200, 0)
@@ -316,15 +349,14 @@ def setup_lighting():
 
 def setup_camera(resolution_x: int, resolution_y: int):
     """フロントビューカメラのセットアップ"""
-    bpy.ops.object.camera_add(location=(0, -2.8, 0.15))
+    bpy.ops.object.camera_add(location=(0, -3.8, 0.05))
     cam = bpy.context.active_object
     cam.name = "Main_Camera"
     cam.rotation_euler = (math.radians(90), 0, 0)
     cam.data.type = 'PERSP'
-    cam.data.lens = 65  # 圧縮感を抑えた標準〜望遠
+    cam.data.lens = 38  # 全身がフレームインする焦点距離
     bpy.context.scene.camera = cam
 
-    # レンダリング解像度
     scene = bpy.context.scene
     scene.render.resolution_x = resolution_x
     scene.render.resolution_y = resolution_y
@@ -333,28 +365,85 @@ def setup_camera(resolution_x: int, resolution_y: int):
 
 def setup_eevee_renderer():
     """
-    EEVEE レンダラーの最適設定
+    EEVEE レンダラーの最適設定 (Blender 4.x / 5.x 両対応)
     Gemini推奨: Bloom + Screen Space Reflections でパンプ感強調
     """
     scene = bpy.context.scene
-    scene.render.engine = 'BLENDER_EEVEE_NEXT'
+    # Blender 5.0 では 'BLENDER_EEVEE'、4.2以前は 'BLENDER_EEVEE_NEXT' も可
+    scene.render.engine = 'BLENDER_EEVEE'
 
     eevee = scene.eevee
-    eevee.use_bloom = True
-    eevee.bloom_threshold = 0.6
-    eevee.bloom_intensity = 0.8
-    eevee.bloom_radius = 4.0
-    eevee.use_ssr = True
-    eevee.ssr_quality = 0.5
-    eevee.taa_render_samples = 32
+    for attr, val in [
+        ('use_bloom', True),
+        ('bloom_threshold', 0.4),
+        ('bloom_intensity', 1.2),
+        ('bloom_radius', 5.0),
+        ('use_ssr', True),
+        ('ssr_quality', 0.5),
+        ('taa_render_samples', 64),
+    ]:
+        try:
+            setattr(eevee, attr, val)
+        except AttributeError:
+            pass
+
+    # カラーマネジメント: Standard = トーンマッピングなし → 発光色が鮮やかになる
+    try:
+        scene.view_settings.view_transform = 'Standard'
+        scene.view_settings.exposure = 0.0
+        scene.view_settings.gamma = 1.0
+    except Exception:
+        pass
 
     # 背景色 (ダークスタジオ)
-    world = bpy.data.worlds["World"]
-    world.use_nodes = True
-    bg_node = world.node_tree.nodes.get("Background")
-    if bg_node:
-        bg_node.inputs["Color"].default_value = (0.008, 0.008, 0.012, 1.0)
-        bg_node.inputs["Strength"].default_value = 0.0
+    try:
+        world = bpy.data.worlds["World"]
+        world.use_nodes = True
+        bg_node = world.node_tree.nodes.get("Background")
+        if bg_node:
+            bg_node.inputs["Color"].default_value = (0.006, 0.006, 0.010, 1.0)
+            bg_node.inputs["Strength"].default_value = 0.0
+    except Exception:
+        pass
+
+
+def setup_compositing_glare():
+    """
+    Blender 5.0 対応のGlare設定。
+    APIバージョン差異を吸収しつつcompositing glareを試みる。
+    """
+    scene = bpy.context.scene
+    try:
+        scene.use_nodes = True
+    except Exception:
+        pass
+
+    # Blender 5.0+ では compositing_node_tree を使う
+    tree = getattr(scene, 'compositing_node_tree', None)
+    if tree is None:
+        tree = getattr(scene, 'node_tree', None)
+    if tree is None:
+        return  # compositing非対応バージョンはスキップ
+
+    nodes = tree.nodes
+    links = tree.links
+    nodes.clear()
+
+    render_layers = nodes.new('CompositorNodeRLayers')
+    render_layers.location = (-400, 0)
+
+    glare = nodes.new('CompositorNodeGlare')
+    glare.location = (-150, 0)
+    glare.glare_type = 'FOG_GLOW'
+    glare.threshold = 0.5
+    glare.size = 7
+    glare.mix = 0.8
+
+    composite = nodes.new('CompositorNodeComposite')
+    composite.location = (100, 0)
+
+    links.new(render_layers.outputs["Image"], glare.inputs["Image"])
+    links.new(glare.outputs["Image"], composite.inputs["Image"])
 
 
 # ── メイン処理 ─────────────────────────────────────────────────────────────
@@ -380,6 +469,9 @@ def main():
 
     # 4. レンダラー設定
     setup_eevee_renderer()
+
+    # 4b. Compositing Glare (Bloom代替)
+    setup_compositing_glare()
 
     # 5. ベース人体
     body = create_body_base()
