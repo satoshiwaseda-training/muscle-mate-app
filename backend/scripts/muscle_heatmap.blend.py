@@ -227,23 +227,92 @@ def create_body_base() -> bpy.types.Object:
     return body
 
 
+def _try_set(node_inputs, name: str, value):
+    """入力ソケットに安全に値をセット（Blenderバージョン差異を吸収）"""
+    try:
+        node_inputs[name].default_value = value
+    except (KeyError, TypeError):
+        pass
+
+
+def _add_fiber_bump(nodes, links, bsdf, intensity: float):
+    """
+    筋線維のバンプマップをプロシージャルに生成する。
+    Wave Texture（縦方向ストランド）+ Noise（不規則性）を合成して
+    筋肉の「セパレーション感」を演出する。
+    """
+    tex_coord = nodes.new('ShaderNodeTexCoord')
+    tex_coord.location = (-900, -200)
+
+    # 筋線維の方向性（Z軸 = 筋肉の長軸方向）
+    wave = nodes.new('ShaderNodeTexWave')
+    wave.location = (-700, -100)
+    wave.wave_type = 'BANDS'
+    wave.bands_direction = 'Z'
+    wave.inputs["Scale"].default_value = 18.0 + intensity * 8.0
+    wave.inputs["Distortion"].default_value = 2.5
+    wave.inputs["Detail"].default_value = 10.0
+    wave.inputs["Detail Scale"].default_value = 3.0
+    wave.inputs["Detail Roughness"].default_value = 0.6
+
+    # 微細な不規則性
+    noise = nodes.new('ShaderNodeTexNoise')
+    noise.location = (-700, -300)
+    noise.inputs["Scale"].default_value = 40.0
+    noise.inputs["Detail"].default_value = 10.0
+    noise.inputs["Roughness"].default_value = 0.7
+    noise.inputs["Distortion"].default_value = 0.3
+
+    # Wave と Noise を MixRGB で合成
+    mix_rgb = nodes.new('ShaderNodeMixRGB')
+    mix_rgb.location = (-500, -200)
+    mix_rgb.blend_type = 'OVERLAY'
+    mix_rgb.inputs["Fac"].default_value = 0.4
+
+    # Bump ノード
+    bump = nodes.new('ShaderNodeBump')
+    bump.location = (-300, -200)
+    bump.inputs["Strength"].default_value = 0.6 + intensity * 0.4
+    bump.inputs["Distance"].default_value = 0.008
+
+    links.new(tex_coord.outputs["Object"], wave.inputs["Vector"])
+    links.new(tex_coord.outputs["Object"], noise.inputs["Vector"])
+    links.new(wave.outputs["Color"], mix_rgb.inputs["Color1"])
+    links.new(noise.outputs["Color"], mix_rgb.inputs["Color2"])
+    links.new(mix_rgb.outputs["Color"], bump.inputs["Height"])
+    links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+
+
 def create_base_material() -> bpy.types.Material:
-    """人体のベースマテリアル（暗いスキン調）"""
+    """
+    人体ベースマテリアル:
+    「深いネイビー・クリスタル質感」— 非活性部位の皮膚/筋肉を表現
+    Metallic + 低Roughness で半透明クリスタル感を演出
+    """
     mat = bpy.data.materials.new(name="Body_Base")
-    mat.use_nodes = True
+    try:
+        mat.use_nodes = True
+    except Exception:
+        pass
     nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
     nodes.clear()
 
     bsdf = nodes.new('ShaderNodeBsdfPrincipled')
     bsdf.location = (0, 0)
-    bsdf.inputs["Base Color"].default_value = (0.08, 0.06, 0.10, 1.0)
-    bsdf.inputs["Metallic"].default_value = 0.1
-    bsdf.inputs["Roughness"].default_value = 0.6
-    bsdf.inputs["Specular IOR Level"].default_value = 0.5
+    # ネイビーブラック
+    bsdf.inputs["Base Color"].default_value = (0.012, 0.018, 0.06, 1.0)
+    _try_set(bsdf.inputs, "Metallic", 0.55)
+    _try_set(bsdf.inputs, "Roughness", 0.18)
+    _try_set(bsdf.inputs, "Specular IOR Level", 0.8)
+    # Transmission（半透明クリスタル感）
+    _try_set(bsdf.inputs, "Transmission Weight", 0.12)
+    _try_set(bsdf.inputs, "Coat Weight", 0.4)
+    _try_set(bsdf.inputs, "Coat Roughness", 0.05)
 
     output = nodes.new('ShaderNodeOutputMaterial')
-    output.location = (200, 0)
-    mat.node_tree.links.new(bsdf.outputs["BSDF"], output.inputs["Surface"])
+    output.location = (250, 0)
+    links.new(bsdf.outputs["BSDF"], output.inputs["Surface"])
     return mat
 
 
@@ -251,14 +320,21 @@ def create_muscle_object(
     zone_key: str,
     center: tuple,
     size: tuple,
-    color_rgb: tuple,
-    emission_strength: float,
+    intensity: float,
 ) -> bpy.types.Object:
-    """筋肉部位をカプセル形状で生成し Emission マテリアルを適用"""
+    """
+    筋肉部位オブジェクトを生成し、強度別の高品質マテリアルを適用する。
+
+    intensity > 0.6  → 「白熱するマグマ」: SSS + Emission + 筋線維バンプ
+    intensity 0.3-0.6 → 中間（オレンジ〜赤）
+    intensity < 0.3  → 「ネイビークリスタル」: Metallic + 弱い青発光
+    """
     cx, cy, cz, sx, sy, sz = (*center, *size)
+    r_emit, g_emit, b_emit = _intensity_to_color(intensity)
+    e_strength = _emission_strength(intensity)
 
     bpy.ops.mesh.primitive_uv_sphere_add(
-        segments=20, ring_count=10,
+        segments=24, ring_count=14,
         radius=1.0,
         location=(cx, cy, cz),
     )
@@ -267,7 +343,6 @@ def create_muscle_object(
     obj.scale = (sx, sy, sz)
     bpy.ops.object.shade_smooth()
 
-    # Emission のみのシンプルなマテリアル（よりクリアな発光感）
     mat = bpy.data.materials.new(name=f"Mat_{zone_key}")
     try:
         mat.use_nodes = True
@@ -277,33 +352,74 @@ def create_muscle_object(
     links = mat.node_tree.links
     nodes.clear()
 
-    r, g, b = color_rgb
-
-    # Principled BSDF（ベース）
     bsdf = nodes.new('ShaderNodeBsdfPrincipled')
-    bsdf.location = (-300, 100)
-    # Base Color は強度を抑えた版（clamped）
-    bc = min(r * 0.3, 1.0), min(g * 0.3, 1.0), min(b * 0.3, 1.0)
-    bsdf.inputs["Base Color"].default_value = (*bc, 1.0)
-    bsdf.inputs["Roughness"].default_value = 0.25
-    bsdf.inputs["Metallic"].default_value = 0.08
+    bsdf.location = (-200, 200)
 
-    # Emission（高輝度、bloom素材）
+    if intensity >= 0.6:
+        # ── 高強度: マグマ・白熱 ──────────────────────────────
+        # Base Color (clamped sRGB)
+        bc_r = min(r_emit * 0.25, 1.0)
+        bc_g = min(g_emit * 0.25, 1.0)
+        bc_b = min(b_emit * 0.25, 1.0)
+        bsdf.inputs["Base Color"].default_value = (bc_r, bc_g, bc_b, 1.0)
+        _try_set(bsdf.inputs, "Roughness", 0.30)
+        _try_set(bsdf.inputs, "Metallic", 0.0)
+        # SSS（皮下散乱: 内部から熱が滲む）
+        sss_strength = (intensity - 0.6) / 0.4 * 0.5  # 0.0〜0.5
+        _try_set(bsdf.inputs, "Subsurface Weight", sss_strength)
+        _try_set(bsdf.inputs, "Subsurface", sss_strength)  # 旧バージョン対応
+        _try_set(bsdf.inputs, "Subsurface Radius",
+                 (min(r_emit*0.5, 1.0), min(g_emit*0.3, 1.0), min(b_emit*0.1, 1.0)))
+        _try_set(bsdf.inputs, "Subsurface Color",
+                 (min(r_emit, 1.0), min(g_emit * 0.5, 1.0), 0.0, 1.0))
+        # コート（筋肉の湿った表面の光沢）
+        _try_set(bsdf.inputs, "Coat Weight", 0.6)
+        _try_set(bsdf.inputs, "Coat Roughness", 0.1)
+        # 筋線維バンプ
+        _add_fiber_bump(nodes, links, bsdf, intensity)
+
+    elif intensity >= 0.3:
+        # ── 中強度: 暖色（オレンジ〜赤）────────────────────────
+        bc_r = min(r_emit * 0.20, 1.0)
+        bc_g = min(g_emit * 0.20, 1.0)
+        bc_b = min(b_emit * 0.20, 1.0)
+        bsdf.inputs["Base Color"].default_value = (bc_r, bc_g, bc_b, 1.0)
+        _try_set(bsdf.inputs, "Roughness", 0.40)
+        _try_set(bsdf.inputs, "Metallic", 0.05)
+        _try_set(bsdf.inputs, "Subsurface Weight", 0.15)
+        _try_set(bsdf.inputs, "Subsurface", 0.15)
+        _add_fiber_bump(nodes, links, bsdf, intensity)
+
+    else:
+        # ── 低強度: ネイビークリスタル ───────────────────────
+        bsdf.inputs["Base Color"].default_value = (0.01, 0.02, 0.12, 1.0)
+        _try_set(bsdf.inputs, "Metallic", 0.65)
+        _try_set(bsdf.inputs, "Roughness", 0.08)
+        _try_set(bsdf.inputs, "Coat Weight", 0.8)
+        _try_set(bsdf.inputs, "Coat Roughness", 0.02)
+        _try_set(bsdf.inputs, "Transmission Weight", 0.2)
+
+    # Emission（全強度で適用、低強度は弱い青）
     emission = nodes.new('ShaderNodeEmission')
-    emission.location = (-300, -100)
-    emission.inputs["Color"].default_value = (
-        min(r, 10.0), min(g, 10.0), min(b, 10.0), 1.0
-    )
-    emission.inputs["Strength"].default_value = emission_strength * 1.5
+    emission.location = (-200, -100)
+    if intensity < 0.3:
+        # 冷たい青の微発光
+        emission.inputs["Color"].default_value = (0.05, 0.10, 0.8, 1.0)
+        emission.inputs["Strength"].default_value = 0.3 + intensity * 0.5
+    else:
+        emission.inputs["Color"].default_value = (
+            min(r_emit, 15.0), min(g_emit, 15.0), min(b_emit, 15.0), 1.0
+        )
+        emission.inputs["Strength"].default_value = e_strength * 1.8
 
-    # MixShader: 強度が高いほど Emission 比率を増加
-    fac = min(0.3 + (emission_strength / 5.0) * 0.6, 0.95)
+    # MixShader (高強度ほどEmission比重大)
+    fac = 0.15 + min(intensity * 0.75, 0.80)
     mix = nodes.new('ShaderNodeMixShader')
-    mix.location = (0, 0)
+    mix.location = (100, 100)
     mix.inputs["Fac"].default_value = fac
 
     output = nodes.new('ShaderNodeOutputMaterial')
-    output.location = (200, 0)
+    output.location = (320, 100)
 
     links.new(bsdf.outputs["BSDF"], mix.inputs[1])
     links.new(emission.outputs["Emission"], mix.inputs[2])
@@ -315,36 +431,59 @@ def create_muscle_object(
 
 def setup_lighting():
     """
-    Gemini推奨のスタジオライティングをセットアップ:
-    Key + Fill + Rim の3点照明でパンプアップ感を最大化
+    ボディビルコンテスト照明 (5灯):
+    - Key Light   : 正面やや右上、弱め（影を殺さない）
+    - Rim L/R     : 左右斜め後方から強烈なエッジ光（筋肉カットを際立たせる）
+    - Top Spot    : 真上から → 三角筋・僧帽筋のセパレーションを強調
+    - Floor Bounce: 床反射の微弱なアンビエント
     """
-    # Key Light (右上45°、暖色)
-    bpy.ops.object.light_add(type='AREA', location=(1.5, -1.0, 1.8))
+    # ── Key Light (正面右上、暖色、やや抑制) ─────────────────
+    bpy.ops.object.light_add(type='AREA', location=(1.2, -1.5, 1.6))
     key = bpy.context.active_object
     key.name = "Key_Light"
-    key.data.energy = 120.0
-    key.data.color = (1.0, 0.92, 0.78)  # 5500K
-    key.data.size = 0.8
-    key.rotation_euler = (math.radians(45), 0, math.radians(30))
+    key.data.energy = 80.0        # 控えめ: 影を潰さない
+    key.data.color = (1.0, 0.90, 0.75)  # 5200K 暖色
+    key.data.size = 0.6
+    key.rotation_euler = (math.radians(50), 0, math.radians(25))
 
-    # Fill Light (左側、冷色)
-    bpy.ops.object.light_add(type='AREA', location=(-1.8, 0.5, 0.8))
-    fill = bpy.context.active_object
-    fill.name = "Fill_Light"
-    fill.data.energy = 40.0
-    fill.data.color = (0.78, 0.88, 1.0)  # 7000K
-    fill.data.size = 1.5
-    fill.rotation_euler = (math.radians(30), 0, math.radians(-40))
+    # ── Rim Light 右 (後方右45°, 強烈、やや暖色) ─────────────
+    bpy.ops.object.light_add(type='SPOT', location=(1.6, 1.8, 0.8))
+    rim_r = bpy.context.active_object
+    rim_r.name = "Rim_Right"
+    rim_r.data.energy = 600.0    # 非常に強い
+    rim_r.data.color = (1.0, 0.85, 0.6)  # 暖色リム
+    rim_r.data.spot_size = math.radians(28)
+    rim_r.data.spot_blend = 0.08
+    rim_r.rotation_euler = (math.radians(-10), 0, math.radians(220))
 
-    # Rim Light (背後、白、ハードエッジ)
-    bpy.ops.object.light_add(type='SPOT', location=(0.0, 2.0, 1.2))
-    rim = bpy.context.active_object
-    rim.name = "Rim_Light"
-    rim.data.energy = 200.0
-    rim.data.color = (1.0, 1.0, 1.0)
-    rim.data.spot_size = math.radians(40)
-    rim.data.spot_blend = 0.15
-    rim.rotation_euler = (math.radians(-20), 0, math.radians(180))
+    # ── Rim Light 左 (後方左45°, 強烈、冷色) ─────────────────
+    bpy.ops.object.light_add(type='SPOT', location=(-1.6, 1.8, 0.8))
+    rim_l = bpy.context.active_object
+    rim_l.name = "Rim_Left"
+    rim_l.data.energy = 500.0
+    rim_l.data.color = (0.7, 0.85, 1.0)  # 冷色リム (コントラスト)
+    rim_l.data.spot_size = math.radians(28)
+    rim_l.data.spot_blend = 0.08
+    rim_l.rotation_euler = (math.radians(-10), 0, math.radians(140))
+
+    # ── Top Spot (真上から、狭い照射角) ─────────────────────
+    bpy.ops.object.light_add(type='SPOT', location=(0.0, -0.3, 3.0))
+    top = bpy.context.active_object
+    top.name = "Top_Spot"
+    top.data.energy = 300.0
+    top.data.color = (1.0, 1.0, 1.0)
+    top.data.spot_size = math.radians(22)
+    top.data.spot_blend = 0.05
+    top.rotation_euler = (math.radians(0), 0, 0)
+
+    # ── Floor Bounce (床下から微弱なアンビエント) ────────────
+    bpy.ops.object.light_add(type='AREA', location=(0.0, -0.5, -1.4))
+    floor = bpy.context.active_object
+    floor.name = "Floor_Bounce"
+    floor.data.energy = 15.0
+    floor.data.color = (0.6, 0.7, 1.0)  # 冷たい反射
+    floor.data.size = 2.0
+    floor.rotation_euler = (math.radians(180), 0, 0)
 
 
 def setup_camera(resolution_x: int, resolution_y: int):
@@ -478,14 +617,10 @@ def main():
     base_mat = create_base_material()
     body.data.materials.append(base_mat)
 
-    # 6. 筋肉部位オーバーレイ（発光エフェクト）
+    # 6. 筋肉部位オーバーレイ（高品質マテリアル）
+    # 低強度でもネイビークリスタルとして全部位を描画（コントラストのため）
     for group, zones in _GROUP_TO_ZONES.items():
         intensity = intensities.get(group, 0.0)
-        if intensity < 0.05:
-            continue  # 非活性部位はスキップ
-
-        color_rgb = _intensity_to_color(intensity)
-        strength = _emission_strength(intensity)
 
         for zone_key in zones:
             if zone_key not in _MUSCLE_ZONES:
@@ -494,11 +629,10 @@ def main():
             create_muscle_object(
                 zone_key=zone_key,
                 center=(cx, cy, cz),
-                size=(sx * 0.9, sy * 0.9, sz * 0.9),  # ベースより少し小さく
-                color_rgb=color_rgb,
-                emission_strength=strength,
+                size=(sx * 0.88, sy * 0.88, sz * 0.88),
+                intensity=intensity,
             )
-            print(f"  [{zone_key}] intensity={intensity:.2f}, strength={strength:.2f}")
+            print(f"  [{zone_key}] intensity={intensity:.3f}")
 
     # 7. レンダリング
     bpy.context.scene.render.filepath = output_path
