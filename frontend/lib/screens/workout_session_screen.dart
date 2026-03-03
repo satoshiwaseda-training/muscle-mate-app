@@ -142,10 +142,12 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
         _completedSets.fold(0.0, (s, r) => s + r.volume);
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('セッション完了！'),
         centerTitle: true,
         automaticallyImplyLeading: false,
+        backgroundColor: AppColors.background,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -155,55 +157,94 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
             EntertainmentBanner(data: _entertainment!),
           if (_entertainment == null)
             _SimpleTotalCard(totalKg: totalKg),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
           // 筋肉ビジュアライザー
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Text('今日のターゲット筋群',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 16),
-                  MuscleVisualizer(
-                      trainedMuscles: widget.session.targetMuscles),
-                ],
-              ),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF2A2040)),
+            ),
+            child: Column(
+              children: [
+                const Text(
+                  '今日のターゲット筋群',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                MuscleVisualizer(
+                    trainedMuscles: widget.session.targetMuscles),
+              ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
           // セット実績リスト
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('実績サマリー',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const Divider(height: 16),
-                  ..._completedSets.map((s) => Padding(
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 3),
-                        child: Row(
-                          mainAxisAlignment:
-                              MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(child: Text(s.exerciseName)),
-                            Text(
-                              '${s.weightKg.toStringAsFixed(1)}kg × ${s.reps}rep'
-                              '  = ${s.volume.toStringAsFixed(0)}kg',
-                              style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      )),
-                ],
-              ),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF2A2040)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '実績サマリー',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const Divider(height: 20, color: Color(0xFF2A2040)),
+                ..._completedSets.map((s) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(s.exerciseName,
+                                style: const TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 13)),
+                          ),
+                          Text(
+                            '${s.weightKg.toStringAsFixed(1)}kg × ${s.reps}rep'
+                            ' = ${s.volume.toStringAsFixed(0)}kg',
+                            style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                                color: AppColors.textSecond),
+                          ),
+                        ],
+                      ),
+                    )),
+                const Divider(height: 20, color: Color(0xFF2A2040)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('総挙上重量',
+                        style: TextStyle(
+                            color: AppColors.textSecond,
+                            fontWeight: FontWeight.bold)),
+                    Text(
+                      '${totalKg.toStringAsFixed(0)} kg',
+                      style: const TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 20),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 24),
@@ -212,7 +253,14 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
                 Navigator.popUntil(context, (r) => r.isFirst),
             icon: const Icon(Icons.home),
             label: const Text('ホームに戻る'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              textStyle: const TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ),
+          const SizedBox(height: 24),
         ],
       ),
     );
