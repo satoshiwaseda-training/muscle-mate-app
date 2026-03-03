@@ -1,5 +1,5 @@
 // ホーム画面：ユーザー情報入力 → ワークアウトプラン生成
-/// BIG3 MAXを入力すると個人のMAX重量に基づいた重量がメニューに反映される
+// BIG3 MAXを入力すると個人のMAX重量に基づいた重量がメニューに反映される
 import 'package:flutter/material.dart';
 import '../models/workout_plan.dart';
 import '../services/api_service.dart';
@@ -16,7 +16,6 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── 基本設定 ─────────────────────────────────────────────────────────────
   Goal _selectedGoal = Goal.muscleGain;
   Level _selectedLevel = Level.beginner;
-  int _daysPerWeek = 3;
   final Set<Equipment> _selectedEquipment = {Equipment.bodyweight};
   bool _isLoading = false;
 
@@ -67,7 +66,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final request = WorkoutRequest(
       goal: _selectedGoal,
       level: _selectedLevel,
-      daysPerWeek: _daysPerWeek,
       equipment: _selectedEquipment.toList(),
       big3Max: big3,
     );
@@ -104,7 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ── 目標 ──────────────────────────────────────────────────────
-            _SectionTitle('トレーニング目標'),
+            const _SectionTitle('トレーニング目標'),
             Wrap(
               spacing: 8,
               children: Goal.values.map((g) {
@@ -118,7 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 16),
 
             // ── レベル ────────────────────────────────────────────────────
-            _SectionTitle('現在のレベル'),
+            const _SectionTitle('現在のレベル'),
             Wrap(
               spacing: 8,
               children: Level.values.map((l) {
@@ -131,20 +129,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 16),
 
-            // ── 週の日数 ──────────────────────────────────────────────────
-            _SectionTitle('週のトレーニング日数: $_daysPerWeek 日'),
-            Slider(
-              value: _daysPerWeek.toDouble(),
-              min: 1,
-              max: 7,
-              divisions: 6,
-              label: '$_daysPerWeek日',
-              onChanged: (v) => setState(() => _daysPerWeek = v.round()),
-            ),
-            const SizedBox(height: 16),
-
             // ── 器具 ──────────────────────────────────────────────────────
-            _SectionTitle('使用可能な器具（複数選択）'),
+            const _SectionTitle('使用可能な器具（複数選択）'),
             Wrap(
               spacing: 8,
               children: Equipment.values.map((e) {

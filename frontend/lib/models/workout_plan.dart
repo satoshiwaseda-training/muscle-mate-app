@@ -1,6 +1,6 @@
 // 筋トレメニューの Dart モデル
-/// backend/src/schemas/workout.py の WorkoutPlan と完全対応
-/// fromJson / toJson で安全なシリアライズを保証
+// backend/src/schemas/workout.py の WorkoutPlan と完全対応
+// fromJson / toJson で安全なシリアライズを保証
 
 // ── Enums ────────────────────────────────────────────────────────────────────
 
@@ -36,15 +36,15 @@ enum Equipment {
   dumbbell('dumbbell', 'ダンベル'),
   machine('machine', 'マシン'),
   bodyweight('bodyweight', '自重'),
-  cable('cable', 'ケーブル'),
-  kettlebell('kettlebell', 'ケトルベル');
+  cable('cable', 'ケーブル');
 
   const Equipment(this.value, this.label);
   final String value;
   final String label;
 
   static Equipment fromValue(String v) =>
-      Equipment.values.firstWhere((e) => e.value == v);
+      Equipment.values.firstWhere((e) => e.value == v,
+          orElse: () => Equipment.bodyweight);
 }
 
 // ── リクエストモデル: Flutter → FastAPI ──────────────────────────────────────
@@ -74,7 +74,9 @@ class WorkoutRequest {
   final Goal goal;
   final Level level;
   final int daysPerWeek;
+  final int sessionDurationMinutes;
   final List<Equipment> equipment;
+  final List<String> targetMuscles;
   final int? age;
   final String? notes;
   final Big3Max? big3Max;
@@ -82,8 +84,10 @@ class WorkoutRequest {
   const WorkoutRequest({
     required this.goal,
     required this.level,
-    required this.daysPerWeek,
+    this.daysPerWeek = 3,
+    this.sessionDurationMinutes = 60,
     required this.equipment,
+    this.targetMuscles = const [],
     this.age,
     this.notes,
     this.big3Max,
@@ -93,7 +97,9 @@ class WorkoutRequest {
         'goal': goal.value,
         'level': level.value,
         'days_per_week': daysPerWeek,
+        'session_duration_minutes': sessionDurationMinutes,
         'equipment': equipment.map((e) => e.value).toList(),
+        if (targetMuscles.isNotEmpty) 'target_muscles': targetMuscles,
         if (age != null) 'age': age,
         if (notes != null && notes!.isNotEmpty) 'notes': notes,
         if (big3Max != null && big3Max!.hasAny) 'big3_max': big3Max!.toJson(),

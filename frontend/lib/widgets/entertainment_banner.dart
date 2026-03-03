@@ -1,5 +1,5 @@
 // 総挙上重量エンタメバナー
-/// グレードに応じた背景色と震えるようなアニメーション付き
+// グレードに応じた背景色と震えるようなアニメーション付き
 import 'package:flutter/material.dart';
 
 class EntertainmentBanner extends StatefulWidget {

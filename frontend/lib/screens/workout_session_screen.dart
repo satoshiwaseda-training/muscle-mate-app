@@ -1,6 +1,7 @@
 // ワークアウトセッション画面
-/// セットごとに重量・回数を記録 → 完了時に合計とエンタメを表示
+// セットごとに重量・回数を記録 → 完了時に合計とエンタメを表示
 import 'package:flutter/material.dart';
+import '../main.dart' show AppColors;
 import '../models/workout_plan.dart';
 import '../models/workout_record.dart';
 import '../services/api_service.dart';
@@ -99,10 +100,11 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
     if (_finished) return _buildResult();
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(widget.session.sessionName),
         centerTitle: true,
-        backgroundColor: const Color(0xFFE53935),
+        backgroundColor: AppColors.primary,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -124,7 +126,7 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
                 : const Icon(Icons.check_circle),
             label: Text(_loading ? '記録中...' : 'トレーニング完了！'),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFE53935),
+              backgroundColor: AppColors.primary,
               padding: const EdgeInsets.symmetric(vertical: 16),
               textStyle: const TextStyle(
                   fontSize: 16, fontWeight: FontWeight.bold),
@@ -238,39 +240,85 @@ class _ExerciseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(exercise.nameJa,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 16)),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF2A2040)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── 種目名 + 休憩バッジ ───────────────────────────
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(exercise.nameJa,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppColors.textPrimary)),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.4)),
                 ),
-                if (exercise.weightKg != null)
-                  Chip(
-                    label: Text('推奨: ${exercise.weightKg}kg',
-                        style: const TextStyle(fontSize: 11)),
-                    backgroundColor:
-                        const Color(0xFFE53935).withValues(alpha: 0.15),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.timer_outlined,
+                        size: 12, color: AppColors.primaryDim),
+                    const SizedBox(width: 3),
+                    Text(
+                      '休憩 ${exercise.restSeconds}秒',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.primaryDim,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+              if (exercise.weightKg != null) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
                   ),
+                  child: Text(
+                    '推奨 ${exercise.weightKg!.toStringAsFixed(1)}kg',
+                    style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.secondary,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
               ],
-            ),
-            Text(exercise.coachingPoint,
-                style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 12),
-            ...List.generate(exercise.sets, (i) => _SetRow(
-                  setNum: i + 1,
-                  input: inputs[i],
-                  onChanged: onChanged,
-                )),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(exercise.coachingPoint,
+              style: const TextStyle(
+                  color: AppColors.textSecond, fontSize: 12)),
+          const SizedBox(height: 12),
+          ...List.generate(exercise.sets, (i) => _SetRow(
+                setNum: i + 1,
+                input: inputs[i],
+                onChanged: onChanged,
+              )),
+        ],
       ),
     );
   }

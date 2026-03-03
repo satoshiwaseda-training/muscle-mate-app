@@ -1,6 +1,7 @@
 // 生成されたワークアウトプランの表示画面
-/// セッションを選んで「ワークアウト開始」ボタンでセッション画面へ
+// セッションを選んで「ワークアウト開始」ボタンでセッション画面へ
 import 'package:flutter/material.dart';
+import '../main.dart' show AppColors;
 import '../models/workout_plan.dart';
 import 'workout_session_screen.dart';
 
@@ -11,6 +12,7 @@ class WorkoutPlanScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(plan.planName, overflow: TextOverflow.ellipsis),
         centerTitle: true,
@@ -19,23 +21,30 @@ class WorkoutPlanScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           // ── プラン概要 ─────────────────────────────────────
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(plan.planName,
-                      style: Theme.of(context).textTheme.headlineSmall),
-                  const SizedBox(height: 4),
-                  Text('推奨期間: ${plan.durationWeeks}週間'),
-                  const Divider(height: 24),
-                  Text('総合アドバイス',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 4),
-                  Text(plan.generalAdvice),
-                ],
-              ),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF2A2040)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(plan.planName,
+                    style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 4),
+                Text('推奨期間: ${plan.durationWeeks}週間',
+                    style: const TextStyle(color: AppColors.textSecond)),
+                const Divider(height: 24, color: Color(0xFF2A2040)),
+                const Text('総合アドバイス',
+                    style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(plan.generalAdvice,
+                    style: const TextStyle(color: AppColors.textSecond)),
+              ],
             ),
           ),
           const SizedBox(height: 16),
@@ -64,20 +73,35 @@ class _SessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF2A2040)),
+      ),
       child: Column(
         children: [
-          ExpansionTile(
-            title: Text(
-              '${_dayLabel(session.dayOfWeek)}：${session.sessionName}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+          Theme(
+            data: Theme.of(context).copyWith(
+              dividerColor: Colors.transparent,
             ),
-            subtitle: Text(
-                '${session.estimatedDurationMinutes}分 / ${session.exercises.length}種目'),
-            children: session.exercises
-                .map((ex) => _ExerciseTile(ex))
-                .toList(),
+            child: ExpansionTile(
+              initiallyExpanded: true,
+              title: Text(
+                '${_dayLabel(session.dayOfWeek)}：${session.sessionName}',
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary),
+              ),
+              subtitle: Text(
+                '${session.estimatedDurationMinutes}分 / ${session.exercises.length}種目',
+                style: const TextStyle(color: AppColors.textSecond),
+              ),
+              children: session.exercises
+                  .map((ex) => _ExerciseTile(ex))
+                  .toList(),
+            ),
           ),
           // ── ワークアウト開始ボタン ──────────────────────────
           Padding(
@@ -97,7 +121,7 @@ class _SessionCard extends StatelessWidget {
                 icon: const Icon(Icons.play_arrow),
                 label: const Text('このセッションを開始'),
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFE53935),
+                  backgroundColor: AppColors.primary,
                 ),
               ),
             ),
@@ -114,31 +138,130 @@ class _ExerciseTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      title: Text('${exercise.nameJa}  (${exercise.nameEn})'),
-      subtitle: Column(
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Color(0xFF2A2040))),
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${exercise.sets}セット × ${exercise.reps}'
-            '  |  インターバル ${exercise.restSeconds}秒',
-            style: const TextStyle(fontWeight: FontWeight.w500),
+          // ── 種目名 + 休憩時間バッジ ────────────────────────
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  exercise.nameJa,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: AppColors.textPrimary),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _RestBadge(exercise.restSeconds),
+            ],
           ),
-          if (exercise.weightKg != null)
-            Text(
-              '推奨重量: ${exercise.weightKg!.toStringAsFixed(1)} kg',
+          const SizedBox(height: 2),
+          Text(exercise.nameEn,
               style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFE53935)),
-            ),
-          const SizedBox(height: 4),
-          Text(exercise.coachingPoint,
-              style: Theme.of(context).textTheme.bodySmall),
+                  color: AppColors.textSecond, fontSize: 11)),
+          const SizedBox(height: 6),
+
+          // ── セット・レップ・重量 ────────────────────────────
+          Row(
+            children: [
+              _InfoChip(
+                  '${exercise.sets}セット × ${exercise.reps}',
+                  Icons.repeat),
+              if (exercise.weightKg != null) ...[
+                const SizedBox(width: 8),
+                _InfoChip(
+                    '推奨 ${exercise.weightKg!.toStringAsFixed(1)}kg',
+                    Icons.fitness_center,
+                    highlight: true),
+              ],
+            ],
+          ),
+          const SizedBox(height: 6),
+
+          // ── コーチングポイント ─────────────────────────────
+          Text(
+            exercise.coachingPoint,
+            style: const TextStyle(
+                color: AppColors.textSecond, fontSize: 12),
+          ),
         ],
       ),
-      isThreeLine: true,
+    );
+  }
+}
+
+class _RestBadge extends StatelessWidget {
+  final int seconds;
+  const _RestBadge(this.seconds);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.timer_outlined,
+              size: 12, color: AppColors.primaryDim),
+          const SizedBox(width: 3),
+          Text(
+            '休憩 $seconds秒',
+            style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.primaryDim,
+                fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool highlight;
+  const _InfoChip(this.label, this.icon, {this.highlight = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: highlight
+            ? AppColors.secondary.withValues(alpha: 0.15)
+            : AppColors.surfaceHigh,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon,
+              size: 11,
+              color: highlight ? AppColors.secondary : AppColors.textSecond),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+                fontSize: 11,
+                color: highlight ? AppColors.secondary : AppColors.textSecond,
+                fontWeight: highlight ? FontWeight.bold : FontWeight.normal),
+          ),
+        ],
+      ),
     );
   }
 }

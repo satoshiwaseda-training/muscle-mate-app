@@ -1,5 +1,5 @@
 // ワークアウト実績の記録モデル
-/// SharedPreferences に JSON として保存する
+// SharedPreferences に JSON として保存する
 import 'dart:convert';
 
 class SetRecord {

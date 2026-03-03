@@ -31,7 +31,6 @@ class Equipment(str, Enum):
     MACHINE    = "machine"
     BODYWEIGHT = "bodyweight"
     CABLE      = "cable"
-    KETTLEBELL = "kettlebell"
 
 
 class DayOfWeek(str, Enum):
@@ -75,8 +74,10 @@ class WorkoutRequest(BaseModel):
     """ユーザーが入力する情報"""
     goal: Goal = Field(..., description="トレーニング目標")
     level: Level = Field(..., description="トレーニングレベル")
-    days_per_week: int = Field(..., ge=1, le=7, description="週のトレーニング日数")
+    days_per_week: int = Field(1, ge=1, le=7, description="セッション数（デフォルト1）")
+    session_duration_minutes: int = Field(60, ge=10, le=240, description="1セッションの予定時間（分）")
     equipment: List[Equipment] = Field(..., min_length=1, description="使用可能な器具")
+    target_muscles: Optional[List[str]] = Field(None, description="今日のターゲット筋群（指定しない場合は全身）")
     age: Optional[int] = Field(None, ge=10, le=100, description="年齢")
     notes: Optional[str] = Field(None, max_length=500, description="特記事項（怪我など）")
     big3_max: Optional[Big3Max] = Field(None, description="BIG3のMAX重量（入力すれば重量が個別に算出される）")
@@ -156,7 +157,7 @@ GEMINI_JSON_SCHEMA = """
           "sets": integer,
           "reps": "string",
           "rest_seconds": integer,
-          "equipment": "barbell|dumbbell|machine|bodyweight|cable|kettlebell",
+          "equipment": "barbell|dumbbell|machine|bodyweight|cable",
           "target_muscles": ["muscle_group"],
           "coaching_point": "string",
           "weight_kg": number_or_null
