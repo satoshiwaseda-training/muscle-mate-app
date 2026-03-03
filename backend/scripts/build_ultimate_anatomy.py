@@ -311,7 +311,8 @@ def main():
             _sh.copy2(OUTPUT_PNG, best_png)
 
         print(f"\n  ── Gemini 品質評価 ──────────────────────────────────")
-        print(f"  総合スコア: {score}/10  {'[PASS ✓]' if eval_result.get('pass') else '[改善要]'}")
+        passed = eval_result.get("pass", False)
+        print(f"  総合スコア: {score}/10  {'[PASS OK]' if passed else '[改善要]'}")
         print(f"  解剖学:     {eval_result.get('anatomy_score', '-')}/10")
         print(f"  テクスチャ: {eval_result.get('texture_score', '-')}/10")
         print(f"  照明:       {eval_result.get('lighting_score', '-')}/10")
@@ -324,7 +325,7 @@ def main():
 
         # 合格判定 (8/10以上)
         if eval_result.get("pass"):
-            print(f"\n  >>> 品質合格！スコア {score}/10 達成 ✓")
+            print(f"\n  >>> 品質合格！スコア {score}/10 達成 [PASS OK]")
             break
 
         if iteration >= max_iter:

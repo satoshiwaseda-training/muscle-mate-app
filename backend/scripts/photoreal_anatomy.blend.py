@@ -68,20 +68,41 @@ print("=" * 60)
 print(f"  Output: {OUTPUT_PATH}")
 print(f"  Res:    {RESOLUTION_X}×{RESOLUTION_Y}")
 
-# ── マグマカラーマップ ────────────────────────────────────────────────────
+# ── ボディビルダー解剖学カラーマップ ─────────────────────────────────────
 def intensity_to_rgb(t: float):
+    """
+    筋肉活性化強度を高コントラスト・ドラマチックな色に変換:
+      0.00-0.20: 漆黒ネイビー (不活性/構造)
+      0.20-0.50: 深紺→深い赤 (低活性)
+      0.50-0.70: 鮮やかな赤 (中活性)
+      0.70-0.85: ホットオレンジ (高活性)
+      0.85-0.95: ブライトゴールド (最高活性)
+      0.95-1.00: 白熱白 (ピーク発光)
+    """
     t = max(0.0, min(1.0, t))
-    if t < 0.25:
-        r = 0.0;       g = 0.0;       b = 0.30 + t * 2.40
+    if t < 0.20:
+        # 漆黒ネイビー (structure)
+        r = 0.0; g = 0.0; b = max(0.04, t * 0.72)
     elif t < 0.50:
-        u = (t - 0.25) / 0.25
-        r = u * 0.80;  g = 0.0;       b = 0.90 - u * 0.90
-    elif t < 0.75:
-        u = (t - 0.50) / 0.25
-        r = 0.80 + u * 0.20; g = u * 0.55; b = 0.0
+        # 深紺→深い赤 (crimson)
+        u = (t - 0.20) / 0.30
+        r = u ** 1.5 * 0.62; g = 0.0; b = max(0.0, 0.14 - u * 0.14)
+    elif t < 0.70:
+        # 深赤→鮮やかな赤
+        u = (t - 0.50) / 0.20
+        r = 0.62 + u * 0.36; g = u * 0.08; b = 0.0
+    elif t < 0.85:
+        # 赤→ホットオレンジ
+        u = (t - 0.70) / 0.15
+        r = 0.98; g = 0.08 + u * 0.52; b = 0.0
+    elif t < 0.96:
+        # オレンジ→ゴールド
+        u = (t - 0.85) / 0.11
+        r = 1.00; g = 0.60 + u * 0.28; b = u * 0.12
     else:
-        u = (t - 0.75) / 0.25
-        r = 1.00; g = 0.55 + u * 0.45; b = u * 0.70
+        # 白熱 (最高強度の筋肉)
+        u = (t - 0.96) / 0.04
+        r = 1.00; g = 0.88 + u * 0.12; b = 0.12 + u * 0.68
     return (r, g, b)
 
 
@@ -110,32 +131,34 @@ def make_cycles_material(name: str, r: float, g: float, b: float,
     tc   = N.new('ShaderNodeTexCoord')
 
     # 筋線維テクスチャ → Base Color に直接注入
+    # BANDS DIRECTION: 'X' = 縦縞 (体の高さ方向に走る筋線維) ← 解剖学的に正確
     wav = N.new('ShaderNodeTexWave')
     wav.wave_type       = 'BANDS'
-    wav.bands_direction = 'Z'
+    wav.bands_direction = 'X'   # 縦縞 = 筋線維方向
     wav.inputs['Scale'].default_value      = P["fiber_scale"]
     wav.inputs['Distortion'].default_value = P["fiber_distort"]
-    wav.inputs['Detail'].default_value     = 7.0
-    wav.inputs['Detail Scale'].default_value = 2.5
+    wav.inputs['Detail'].default_value     = 8.0
+    wav.inputs['Detail Scale'].default_value = 3.0
+    wav.inputs['Detail Roughness'].default_value = 0.6
 
     noise = N.new('ShaderNodeTexNoise')
-    noise.inputs['Scale'].default_value     = 5.0
-    noise.inputs['Detail'].default_value    = 6.0
-    noise.inputs['Roughness'].default_value = 0.65
+    noise.inputs['Scale'].default_value     = 6.0
+    noise.inputs['Detail'].default_value    = 8.0
+    noise.inputs['Roughness'].default_value = 0.70
 
     mix_fib = N.new('ShaderNodeMixRGB')
     mix_fib.blend_type = 'MIX'
-    mix_fib.inputs[0].default_value = 0.20  # 20% noise
+    mix_fib.inputs[0].default_value = 0.25  # 25% noise で有機的変化
 
     ramp = N.new('ShaderNodeValToRGB')
-    ramp.color_ramp.interpolation = 'LINEAR'
-    dk = 0.28; lt = 1.80
-    ramp.color_ramp.elements[0].position = 0.15
+    ramp.color_ramp.interpolation = 'EASE'   # LINEAR→EASE でより自然な遷移
+    dk = 0.22; lt = 2.00                     # より強いダーク/ライトコントラスト
+    ramp.color_ramp.elements[0].position = 0.10
     ramp.color_ramp.elements[0].color = (
-        max(0.001, r * dk), max(0.001, g * dk), max(0.001, b * (dk + 0.04)), 1.0)
-    ramp.color_ramp.elements[1].position = 0.85
+        max(0.001, r * dk), max(0.001, g * dk), max(0.001, b * (dk + 0.06)), 1.0)
+    ramp.color_ramp.elements[1].position = 0.90
     ramp.color_ramp.elements[1].color = (
-        min(1.0, r * lt), min(1.0, g * (lt - 0.18)), min(1.0, b * (lt - 0.35)), 1.0)
+        min(1.0, r * lt), min(1.0, g * (lt - 0.20)), min(1.0, b * (lt - 0.40)), 1.0)
 
     L.new(tc.outputs['Object'], wav.inputs['Vector'])
     L.new(tc.outputs['Object'], noise.inputs['Vector'])
@@ -174,18 +197,32 @@ def make_cycles_material(name: str, r: float, g: float, b: float,
             bsdf.inputs['Emission Color'].default_value = (
                 min(1.0, r * 1.3), min(1.0, g * 0.7), min(1.0, b * 0.4), 1.0)
 
-    # Bump — 筋線維の立体感
+    # Bump — 筋線維の立体感 (Wave + Noise 混合でリアルな凸凹)
     bwav = N.new('ShaderNodeTexWave')
     bwav.wave_type       = 'BANDS'
-    bwav.bands_direction = 'Z'
-    bwav.inputs['Scale'].default_value      = P["fiber_scale"] * 3.5
-    bwav.inputs['Distortion'].default_value = 0.5
+    bwav.bands_direction = 'X'   # 縦縞バンプ
+    bwav.inputs['Scale'].default_value      = P["fiber_scale"] * 3.8
+    bwav.inputs['Distortion'].default_value = 0.8
+    bwav.inputs['Detail'].default_value     = 6.0
+
+    bnoise = N.new('ShaderNodeTexNoise')
+    bnoise.inputs['Scale'].default_value     = 22.0  # 細かい皮膚テクスチャ
+    bnoise.inputs['Detail'].default_value    = 8.0
+    bnoise.inputs['Roughness'].default_value = 0.75
+
+    bmix = N.new('ShaderNodeMixRGB')
+    bmix.blend_type = 'ADD'
+    bmix.inputs[0].default_value = 0.4  # 40% noise overlay
+
     L.new(tc.outputs['Object'], bwav.inputs['Vector'])
+    L.new(tc.outputs['Object'], bnoise.inputs['Vector'])
+    L.new(bwav.outputs['Fac'],  bmix.inputs[1])
+    L.new(bnoise.outputs['Fac'], bmix.inputs[2])
 
     bump = N.new('ShaderNodeBump')
     bump.inputs['Strength'].default_value = P["bump_strength"]
-    bump.inputs['Distance'].default_value = 0.016
-    L.new(bwav.outputs['Fac'],  bump.inputs['Height'])
+    bump.inputs['Distance'].default_value = 0.018
+    L.new(bmix.outputs['Color'],  bump.inputs['Height'])
     L.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
 
     L.new(bsdf.outputs['BSDF'], out.inputs['Surface'])
