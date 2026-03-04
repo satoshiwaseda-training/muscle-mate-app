@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/calendar_home_screen.dart';
+import 'screens/consent_screen.dart';
 import 'screens/plan_generator_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('ja');
-  runApp(const MuscleMateApp());
+  final prefs = await SharedPreferences.getInstance();
+  final consented = prefs.getBool('consent_given') ?? false;
+  runApp(MuscleMateApp(showConsent: !consented));
 }
 
 // ── Anytime Fitness インスパイアカラーパレット ────────────────────────────────
@@ -27,7 +31,8 @@ class AppColors {
 }
 
 class MuscleMateApp extends StatelessWidget {
-  const MuscleMateApp({super.key});
+  final bool showConsent;
+  const MuscleMateApp({super.key, this.showConsent = false});
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +94,26 @@ class MuscleMateApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const _RootNav(),
+      home: showConsent ? const _ConsentGate() : const _RootNav(),
+    );
+  }
+}
+
+// 同意画面 → ルートナビ への橋渡し
+class _ConsentGate extends StatefulWidget {
+  const _ConsentGate();
+  @override
+  State<_ConsentGate> createState() => _ConsentGateState();
+}
+
+class _ConsentGateState extends State<_ConsentGate> {
+  bool _consented = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_consented) return const _RootNav();
+    return ConsentScreen(
+      onConsented: () => setState(() => _consented = true),
     );
   }
 }

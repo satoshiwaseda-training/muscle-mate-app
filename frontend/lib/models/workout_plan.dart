@@ -142,6 +142,18 @@ class Exercise {
         coachingPoint: json['coaching_point'] as String,
         weightKg: (json['weight_kg'] as num?)?.toDouble(),
       );
+
+  Map<String, dynamic> toJson() => {
+        'name_ja': nameJa,
+        'name_en': nameEn,
+        'sets': sets,
+        'reps': reps,
+        'rest_seconds': restSeconds,
+        'equipment': equipment.value,
+        'target_muscles': targetMuscles,
+        'coaching_point': coachingPoint,
+        if (weightKg != null) 'weight_kg': weightKg,
+      };
 }
 
 class DaySession {
@@ -169,6 +181,14 @@ class DaySession {
             .map((e) => Exercise.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
+
+  Map<String, dynamic> toJson() => {
+        'day_of_week': dayOfWeek,
+        'session_name': sessionName,
+        'target_muscles': targetMuscles,
+        'estimated_duration_minutes': estimatedDurationMinutes,
+        'exercises': exercises.map((e) => e.toJson()).toList(),
+      };
 }
 
 class WorkoutPlan {
@@ -192,6 +212,13 @@ class WorkoutPlan {
             .toList(),
         generalAdvice: json['general_advice'] as String,
       );
+
+  Map<String, dynamic> toJson() => {
+        'plan_name': planName,
+        'duration_weeks': durationWeeks,
+        'weekly_schedule': weeklySchedule.map((s) => s.toJson()).toList(),
+        'general_advice': generalAdvice,
+      };
 }
 
 class WorkoutResponse {

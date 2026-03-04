@@ -1,8 +1,10 @@
 // 設定画面: レベル・BIG3 MAX・使用器具を保存
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart' show AppColors;
 import '../models/workout_plan.dart';
 import '../services/local_storage_service.dart';
+import 'privacy_policy_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -52,6 +54,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
           .toSet();
       _loading = false;
     });
+  }
+
+  Future<void> _confirmDeleteAll(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('データを削除しますか？',
+            style: TextStyle(color: AppColors.textPrimary)),
+        content: const Text(
+          'トレーニング記録・設定・同意履歴など、本アプリが保存したすべてのデータを完全に削除します。\nこの操作は取り消せません。',
+          style: TextStyle(color: AppColors.textSecond),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('キャンセル',
+                style: TextStyle(color: AppColors.textSecond)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+                backgroundColor: Colors.redAccent),
+            child: const Text('削除する'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('すべてのデータを削除しました'),
+        backgroundColor: Colors.redAccent,
+      ),
+    );
+    Navigator.pop(context);
   }
 
   Future<void> _save() async {
@@ -176,6 +219,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
+
+                // ── プライバシー ────────────────────────────────────────────
+                _Section(
+                  title: 'プライバシーと法規遵守',
+                  icon: Icons.privacy_tip_outlined,
+                  child: Column(
+                    children: [
+                      _LinkRow(
+                        icon: Icons.article_outlined,
+                        label: 'プライバシーポリシー',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const PrivacyPolicyScreen()),
+                        ),
+                      ),
+                      const Divider(height: 1, color: Color(0xFF2A2040)),
+                      _LinkRow(
+                        icon: Icons.delete_forever_outlined,
+                        label: 'アカウントデータを削除',
+                        color: Colors.redAccent,
+                        onTap: () => _confirmDeleteAll(context),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 32),
               ],
             ),
     );
@@ -229,6 +299,44 @@ class _Section extends StatelessWidget {
           const SizedBox(height: 12),
           child,
         ],
+      ),
+    );
+  }
+}
+
+class _LinkRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color color;
+  const _LinkRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color = AppColors.primaryDim,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(label,
+                  style: TextStyle(
+                      color: color,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500)),
+            ),
+            Icon(Icons.chevron_right, color: color.withValues(alpha: 0.5), size: 16),
+          ],
+        ),
       ),
     );
   }

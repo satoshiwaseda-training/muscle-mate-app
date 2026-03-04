@@ -7,6 +7,55 @@ import '../services/api_service.dart';
 import '../services/local_storage_service.dart';
 import 'workout_plan_screen.dart';
 
+// シマー風ローディングプレースホルダー
+class _ShimmerBox extends StatefulWidget {
+  final double width;
+  final double height;
+  const _ShimmerBox({required this.width, required this.height});
+  @override
+  State<_ShimmerBox> createState() => _ShimmerBoxState();
+}
+
+class _ShimmerBoxState extends State<_ShimmerBox>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1200))
+      ..repeat(reverse: true);
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => Container(
+        width: widget.width,
+        height: widget.height,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          color: Color.lerp(
+            const Color(0xFF2A2040),
+            const Color(0xFF3A3060),
+            _anim.value,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ── 筋群マスター ──────────────────────────────────────────────────────────────
 const _muscles = [
   ('chest',       '胸',      Icons.crop_square),
@@ -102,6 +151,9 @@ class _PlanGeneratorScreenState extends State<PlanGeneratorScreen> {
     setState(() => _generating = false);
 
     if (response.success && response.plan != null) {
+      // キャッシュに保存（オフライン時の再利用のため）
+      await LocalStorageService.cachePlan(response.plan!.toJson());
+      if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -109,10 +161,87 @@ class _PlanGeneratorScreenState extends State<PlanGeneratorScreen> {
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(response.errorMessage ?? 'エラーが発生しました')),
-      );
+      // オフラインフォールバック: キャッシュされたプランを表示
+      final cached = await LocalStorageService.loadCachedPlan();
+      if (!mounted) return;
+      if (cached != null) {
+        _showOfflineDialog(context, cached);
+      } else {
+        _showErrorDialog(context, response.errorMessage ?? 'エラーが発生しました');
+      }
     }
+  }
+
+  void _showOfflineDialog(BuildContext context, Map<String, dynamic> cached) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Row(
+          children: [
+            Icon(Icons.wifi_off, color: AppColors.secondary, size: 20),
+            SizedBox(width: 8),
+            Text('オフラインモード',
+                style: TextStyle(color: AppColors.textPrimary, fontSize: 16)),
+          ],
+        ),
+        content: const Text(
+          'AIサーバーへの接続に失敗しました。\n前回生成したメニューを表示します。',
+          style: TextStyle(color: AppColors.textSecond),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル',
+                style: TextStyle(color: AppColors.textSecond)),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => WorkoutPlanScreen(
+                    plan: WorkoutPlan.fromJson(cached),
+                    isOffline: true,
+                  ),
+                ),
+              );
+            },
+            style:
+                FilledButton.styleFrom(backgroundColor: AppColors.primary),
+            child: const Text('キャッシュを表示'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showErrorDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
+            SizedBox(width: 8),
+            Text('エラー',
+                style: TextStyle(color: AppColors.textPrimary, fontSize: 16)),
+          ],
+        ),
+        content: Text(message,
+            style: const TextStyle(color: AppColors.textSecond)),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary),
+            child: const Text('閉じる'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

@@ -7,7 +7,8 @@ import 'workout_session_screen.dart';
 
 class WorkoutPlanScreen extends StatelessWidget {
   final WorkoutPlan plan;
-  const WorkoutPlanScreen({super.key, required this.plan});
+  final bool isOffline;
+  const WorkoutPlanScreen({super.key, required this.plan, this.isOffline = false});
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +21,32 @@ class WorkoutPlanScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // ── オフラインバナー ──────────────────────────────
+          if (isOffline)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.secondary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: AppColors.secondary.withValues(alpha: 0.4)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.wifi_off, color: AppColors.secondary, size: 16),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'オフラインモード: 前回生成したキャッシュを表示しています',
+                      style: TextStyle(
+                          color: AppColors.secondary, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // ── プラン概要 ─────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(16),

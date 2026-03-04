@@ -1,11 +1,11 @@
 {
-    "name": "muscle_mate",
-    "short_name": "muscle_mate",
+    "name": "Muscle Mate",
+    "short_name": "Muscle Mate",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#110E1E",
+    "theme_color": "#6D28D9",
+    "description": "Gemini AIが作る、あなただけの筋トレメニュー。BIG3 120kgへの最短ルート。",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

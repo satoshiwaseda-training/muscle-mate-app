@@ -69,4 +69,20 @@ class LocalStorageService {
         r.date.month == day.month &&
         r.date.day == day.day);
   }
+
+  // ── オフラインキャッシュ（最後に生成したプラン）─────────────────────────────
+
+  static const _cachedPlanKey = 'cached_workout_plan';
+
+  static Future<void> cachePlan(Map<String, dynamic> planJson) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_cachedPlanKey, jsonEncode(planJson));
+  }
+
+  static Future<Map<String, dynamic>?> loadCachedPlan() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_cachedPlanKey);
+    if (raw == null) return null;
+    return jsonDecode(raw) as Map<String, dynamic>;
+  }
 }
