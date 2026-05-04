@@ -1,16 +1,11 @@
-// SNS シェア用の実績サマリ画面（v1.0 で追加）
+// SNS シェア用の実績サマリ画面（v1.0 で追加・物理オブジェクト比較版）
 //
-// ユーザーが今日 / 過去 7 日 / 過去 30 日のトレーニング実績をまとめて
-// 「自慢できる」形で確認・SNS 共有できる画面。
+// ユーザーが今日 / 過去 7 日 / 過去 30 日に持ち上げた合計重量を、
+// 身近な物体（自分自身・ゴリラ・車・バス・飛行機・ロケット）の
+// 「何個分」に相当するかでビジュアルに表示する。SNS 投稿に映える
+// インパクト重視のレイアウト。
 //
-// 機能:
-//   - 期間タブで切り替え（今日 / 1 週間 / 1 ヶ月）
-//   - 中央のシェア用カード (RepaintBoundary 内) を綺麗にレイアウト
-//   - 「画像を保存・シェア」ボタンで:
-//     - iOS: Native Share Sheet で Photos / Twitter / LINE 等へ
-//     - Web: PNG ファイルとしてダウンロード
-//
-// AI 表記なし。広告も投稿促進も控えめ。
+// AI 表記なし。
 
 import 'dart:io' show File;
 import 'dart:ui' as ui;
@@ -27,6 +22,126 @@ import '../services/local_storage_service.dart';
 
 enum _SummaryRange { today, week, month }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 物理オブジェクト比較データ
+//   小 → 大の順で並ぶ。重量は標準的な目安値。
+// ─────────────────────────────────────────────────────────────────────────────
+class _ComparisonItem {
+  final String emoji;
+  final String name;
+  final double weightKg;
+  final String counterUnit; // 「人」「頭」「台」「機」「基」
+  const _ComparisonItem({
+    required this.emoji,
+    required this.name,
+    required this.weightKg,
+    required this.counterUnit,
+  });
+}
+
+/// 体重未入力時のフォールバック（成人男性平均）
+const double _fallbackBodyWeightKg = 65.0;
+
+/// 体重入力値からその人を含む比較リストを構築する
+List<_ComparisonItem> _buildComparisonItems(double? bodyWeightKg) {
+  return [
+    _ComparisonItem(
+      emoji: '💪',
+      name: 'あなた',
+      weightKg: bodyWeightKg ?? _fallbackBodyWeightKg,
+      counterUnit: '人',
+    ),
+    const _ComparisonItem(
+      emoji: '🦍',
+      name: 'ゴリラ',
+      weightKg: 160,
+      counterUnit: '頭',
+    ),
+    const _ComparisonItem(
+      emoji: '🐎',
+      name: 'ウマ',
+      weightKg: 500,
+      counterUnit: '頭',
+    ),
+    const _ComparisonItem(
+      emoji: '🚗',
+      name: 'クルマ',
+      weightKg: 1500,
+      counterUnit: '台',
+    ),
+    const _ComparisonItem(
+      emoji: '🐘',
+      name: 'ゾウ',
+      weightKg: 5000,
+      counterUnit: '頭',
+    ),
+    const _ComparisonItem(
+      emoji: '🚌',
+      name: 'バス',
+      weightKg: 12000,
+      counterUnit: '台',
+    ),
+    const _ComparisonItem(
+      emoji: '🐋',
+      name: 'クジラ',
+      weightKg: 30000,
+      counterUnit: '頭',
+    ),
+    const _ComparisonItem(
+      emoji: '✈️',
+      name: '飛行機',
+      weightKg: 80000,
+      counterUnit: '機',
+    ),
+    const _ComparisonItem(
+      emoji: '🚀',
+      name: 'ロケット',
+      weightKg: 500000,
+      counterUnit: '基',
+    ),
+  ];
+}
+
+/// 持ち上げた合計重量から、表示する 1〜2 件の比較を選ぶ。
+///   ・「一番 1 に近いもの」= weight ≤ totalKg を満たす最大の物体
+///   ・「その一つ下」= 1 つ軽い物体（複数個に相当する）
+/// 両方とも該当しない場合（total が小さすぎる）は最小物体だけ目標として返す。
+class _Selected {
+  final _ComparisonItem item;
+  final int count;
+  const _Selected(this.item, this.count);
+}
+
+({_Selected? primary, _Selected? secondary, _Selected? aspiration})
+    _selectComparisons(double totalKg, double? bodyWeightKg) {
+  final items = _buildComparisonItems(bodyWeightKg);
+
+  // weight ≤ totalKg を満たす最大インデックス
+  var bigIdx = -1;
+  for (var i = 0; i < items.length; i++) {
+    if (items[i].weightKg <= totalKg) bigIdx = i;
+  }
+
+  if (bigIdx < 0) {
+    // 最小物体にも満たない → 目標として最小物体を提示
+    final lightest = items.first;
+    return (primary: null, secondary: null, aspiration: _Selected(lightest, 1));
+  }
+
+  final primary = _Selected(
+    items[bigIdx],
+    (totalKg / items[bigIdx].weightKg).floor(),
+  );
+  _Selected? secondary;
+  if (bigIdx > 0) {
+    secondary = _Selected(
+      items[bigIdx - 1],
+      (totalKg / items[bigIdx - 1].weightKg).floor(),
+    );
+  }
+  return (primary: primary, secondary: secondary, aspiration: null);
+}
+
 class ShareSummaryScreen extends StatefulWidget {
   const ShareSummaryScreen({super.key});
 
@@ -38,6 +153,7 @@ class _ShareSummaryScreenState extends State<ShareSummaryScreen> {
   final GlobalKey _cardKey = GlobalKey();
   _SummaryRange _range = _SummaryRange.week;
   ShareSummaryStats? _stats;
+  double? _bodyWeightKg;
   bool _processing = false;
 
   @override
@@ -48,8 +164,12 @@ class _ShareSummaryScreenState extends State<ShareSummaryScreen> {
 
   Future<void> _load() async {
     final stats = await LocalStorageService.buildShareSummary();
+    final settings = await LocalStorageService.loadSettings();
     if (!mounted) return;
-    setState(() => _stats = stats);
+    setState(() {
+      _stats = stats;
+      _bodyWeightKg = (settings['body_weight_kg'] as num?)?.toDouble();
+    });
   }
 
   ShareSubStats _currentSub() {
@@ -105,14 +225,12 @@ class _ShareSummaryScreenState extends State<ShareSummaryScreen> {
           '${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.png';
 
       if (kIsWeb) {
-        // Web: bytes を直接 XFile.fromData として渡す（内部で blob URL → download anchor）
         await Share.shareXFiles(
           [XFile.fromData(bytes, mimeType: 'image/png', name: fileName)],
           text: '#MuscleMate でトレーニング記録中 💪',
           fileNameOverrides: [fileName],
         );
       } else {
-        // モバイル: 一時ファイル → Native Share Sheet
         final tempDir = await getTemporaryDirectory();
         final file = File('${tempDir.path}/$fileName');
         await file.writeAsBytes(bytes);
@@ -151,7 +269,7 @@ class _ShareSummaryScreenState extends State<ShareSummaryScreen> {
           : SafeArea(
               child: Column(
                 children: [
-                  // ── 期間タブ ──────────────────────────────────────
+                  // 期間タブ
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                     child: SegmentedButton<_SummaryRange>(
@@ -190,23 +308,54 @@ class _ShareSummaryScreenState extends State<ShareSummaryScreen> {
                     ),
                   ),
 
-                  // ── シェア用カード本体 ────────────────────────────
+                  // 体重未入力ヒント
+                  if (_bodyWeightKg == null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(10),
+                          border:
+                              Border.all(color: AppColors.border, width: 1),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.info_outline,
+                                size: 14, color: AppColors.textSecond),
+                            SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                '設定で体重を入れると「あなた何人分」がより正確になります',
+                                style: TextStyle(
+                                  color: AppColors.textSecond,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // シェア用カード
                   Expanded(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.all(16),
                       child: RepaintBoundary(
                         key: _cardKey,
                         child: _SummaryCard(
-                          rangeLabel: _rangeLabel(),
                           rangeShortLabel: _rangeShortLabel(),
                           stats: _currentSub(),
                           streak: _stats!.streak,
+                          bodyWeightKg: _bodyWeightKg,
                         ),
                       ),
                     ),
                   ),
 
-                  // ── 共有ボタン ────────────────────────────────────
+                  // 共有ボタン
                   SafeArea(
                     top: false,
                     child: Padding(
@@ -258,26 +407,27 @@ class _ShareSummaryScreenState extends State<ShareSummaryScreen> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // _SummaryCard
-//   キャプチャ対象。9:16 比率に近い縦長カードで Twitter/Instagram でも映える。
-//   グラデーション背景 + 大きな数字 + マスコット + ロゴ + 期間ラベル。
+//   キャプチャ対象。テキストは最小限。合計重量と物理比較に焦点。
 // ─────────────────────────────────────────────────────────────────────────────
 class _SummaryCard extends StatelessWidget {
-  final String rangeLabel;
   final String rangeShortLabel;
   final ShareSubStats stats;
   final int streak;
+  final double? bodyWeightKg;
 
   const _SummaryCard({
-    required this.rangeLabel,
     required this.rangeShortLabel,
     required this.stats,
     required this.streak,
+    required this.bodyWeightKg,
   });
 
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
     final df = DateFormat('yyyy.MM.dd', 'ja');
+    final selection = _selectComparisons(stats.totalVolumeKg, bodyWeightKg);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
@@ -303,7 +453,7 @@ class _SummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── 上部: ロゴ + 期間バッジ ─────────────────────────
+          // ── 上部: ロゴ + 期間バッジ ───────────────────────
           Row(
             children: [
               ClipOval(
@@ -347,152 +497,110 @@ class _SummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 28),
 
-          // ── 大見出し ──────────────────────────────────────
-          Text(
-            rangeLabel,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            stats.sessionCount > 0
-                ? '今日も積み上げた。'
-                : 'これから積み上げる。',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 22),
-
-          // ── メインの数字（4 マス） ────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: _StatTile(
-                  label: 'セッション',
-                  value: '${stats.sessionCount}',
-                  unit: '日',
-                  accent: AppColors.primary,
-                  icon: Icons.local_fire_department_outlined,
+          // ── 合計重量（メインビジュアル）─────────────────
+          Center(
+            child: Column(
+              children: [
+                Text(
+                  '持ち上げた合計重量',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.55),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.4,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _StatTile(
-                  label: '総ボリューム',
-                  value: _formatVolume(stats.totalVolumeKg),
-                  unit: 'kg',
-                  accent: AppColors.primaryDim,
-                  icon: Icons.scale_outlined,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _StatTile(
-                  label: '総セット',
-                  value: '${stats.totalSets}',
-                  unit: 'set',
-                  accent: AppColors.secondary,
-                  icon: Icons.repeat,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _StatTile(
-                  label: '連続記録',
-                  value: '$streak',
-                  unit: '日',
-                  accent: AppColors.primary,
-                  icon: Icons.trending_up,
-                ),
-              ),
-            ],
-          ),
-
-          // ── よく頑張った種目 TOP3 ─────────────────────────
-          if (stats.topExercises.isNotEmpty) ...[
-            const SizedBox(height: 18),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: AppColors.primary.withValues(alpha: 0.32),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'よく頑張った種目',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.65),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.6,
+                const SizedBox(height: 8),
+                ShaderMask(
+                  shaderCallback: (rect) => const LinearGradient(
+                    colors: [
+                      AppColors.primaryDim,
+                      AppColors.primary,
+                    ],
+                  ).createShader(rect),
+                  child: Text(
+                    _formatVolume(stats.totalVolumeKg),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 56,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -1.5,
+                      height: 0.95,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  ...stats.topExercises.asMap().entries.map(
-                        (e) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 22,
-                                height: 22,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '${e.key + 1}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  e.value,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'kg',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
+          const SizedBox(height: 26),
+
+          // ── 物理オブジェクト比較 ─────────────────────────
+          if (selection.primary != null || selection.secondary != null)
+            _ComparisonRow(
+              primary: selection.primary,
+              secondary: selection.secondary,
+            )
+          else if (selection.aspiration != null)
+            _AspirationRow(
+              target: selection.aspiration!,
+              currentKg: stats.totalVolumeKg,
+            ),
 
           const SizedBox(height: 18),
 
-          // ── フッター: 日付 + ハッシュタグ ────────────────────
+          // ── 補足情報（コンパクト・期間補足）─────────────
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _CompactStat(
+                  icon: Icons.local_fire_department_outlined,
+                  label: 'セッション',
+                  value: '${stats.sessionCount}日',
+                ),
+                Container(
+                  width: 1,
+                  height: 28,
+                  color: Colors.white.withValues(alpha: 0.12),
+                ),
+                _CompactStat(
+                  icon: Icons.repeat,
+                  label: '総セット',
+                  value: '${stats.totalSets}set',
+                ),
+                Container(
+                  width: 1,
+                  height: 28,
+                  color: Colors.white.withValues(alpha: 0.12),
+                ),
+                _CompactStat(
+                  icon: Icons.trending_up,
+                  label: '連続',
+                  value: '$streak日',
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // ── フッター: 日付 + ハッシュタグ ──────────────────
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -521,72 +629,108 @@ class _SummaryCard extends StatelessWidget {
   }
 
   String _formatVolume(double v) {
-    if (v >= 1000) {
+    if (v >= 10000) {
       return (v / 1000).toStringAsFixed(1) + 'k';
+    }
+    if (v >= 1000) {
+      // 1,234 形式
+      final s = v.toStringAsFixed(0);
+      final reversed = s.split('').reversed.join();
+      final withCommas = StringBuffer();
+      for (var i = 0; i < reversed.length; i++) {
+        if (i > 0 && i % 3 == 0) withCommas.write(',');
+        withCommas.write(reversed[i]);
+      }
+      return withCommas.toString().split('').reversed.join();
     }
     return v.toStringAsFixed(0);
   }
 }
 
-class _StatTile extends StatelessWidget {
-  final String label;
-  final String value;
-  final String unit;
-  final Color accent;
-  final IconData icon;
-  const _StatTile({
-    required this.label,
-    required this.value,
-    required this.unit,
-    required this.accent,
-    required this.icon,
-  });
+// 物理オブジェクト 1〜2 件を並べる
+class _ComparisonRow extends StatelessWidget {
+  final _Selected? primary;
+  final _Selected? secondary;
+  const _ComparisonRow({this.primary, this.secondary});
 
   @override
   Widget build(BuildContext context) {
+    final items = <Widget>[];
+    if (primary != null) items.add(_ComparisonTile(selected: primary!, isPrimary: true));
+    if (secondary != null) {
+      if (items.isNotEmpty) items.add(const SizedBox(height: 10));
+      items.add(_ComparisonTile(selected: secondary!, isPrimary: false));
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: items);
+  }
+}
+
+class _ComparisonTile extends StatelessWidget {
+  final _Selected selected;
+  final bool isPrimary;
+  const _ComparisonTile({required this.selected, required this.isPrimary});
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = isPrimary ? AppColors.primary : AppColors.primaryDim;
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withValues(alpha: 0.32)),
+        gradient: LinearGradient(
+          colors: [
+            accent.withValues(alpha: 0.18),
+            accent.withValues(alpha: 0.04),
+          ],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withValues(alpha: 0.55), width: 1.5),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Icon(icon, color: accent, size: 16),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+          // 絵文字
+          Text(
+            selected.item.emoji,
+            style: TextStyle(fontSize: isPrimary ? 38 : 30),
           ),
-          const SizedBox(height: 6),
-          RichText(
-            text: TextSpan(
+          const SizedBox(width: 14),
+          // 名前
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextSpan(
-                  text: value,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w900,
-                    height: 1.0,
+                Text(
+                  selected.item.name,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.65),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.4,
                   ),
                 ),
-                TextSpan(
-                  text: ' $unit',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                const SizedBox(height: 2),
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '${selected.count}',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: isPrimary ? 32 : 24,
+                          fontWeight: FontWeight.w900,
+                          height: 1.0,
+                        ),
+                      ),
+                      TextSpan(
+                        text: ' ${selected.item.counterUnit}分',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: isPrimary ? 16 : 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -594,6 +738,103 @@ class _StatTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AspirationRow extends StatelessWidget {
+  final _Selected target;
+  final double currentKg;
+  const _AspirationRow({required this.target, required this.currentKg});
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = (target.item.weightKg - currentKg).clamp(0, double.infinity);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.32),
+        ),
+      ),
+      child: Row(
+        children: [
+          Text(
+            target.item.emoji,
+            style: const TextStyle(fontSize: 30),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${target.item.name} 1 ${target.item.counterUnit}分まで',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.65),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'あと ${remaining.toStringAsFixed(0)} kg',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactStat extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  const _CompactStat({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: AppColors.primary),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.55),
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
     );
   }
 }
