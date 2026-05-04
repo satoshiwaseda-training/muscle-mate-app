@@ -243,11 +243,16 @@ class _WorkoutResultScreenState extends State<WorkoutResultScreen>
                     _buildTopBar(),
                     const SizedBox(height: 12),
                     _buildHeroCard(),
-                    const SizedBox(height: 14),
-                    _buildAcceptanceMessage(),
-                    const SizedBox(height: 14),
-                    _buildMascotCallout(),
                     const SizedBox(height: 18),
+                    // v1.0: ユーザーフィードバック反映で完了画面を 2 ブロックのみに整理。
+                    // 一時非表示にしているのは：
+                    //   _buildAcceptanceMessage()  受容メッセージ (ハート + 短文)
+                    //   _buildMascotCallout()      マスコット + 一言コメント
+                    // v1.1 以降で再表示する場合は次の 4 行を有効化：
+                    //   _buildAcceptanceMessage(),
+                    //   const SizedBox(height: 14),
+                    //   _buildMascotCallout(),
+                    //   const SizedBox(height: 18),
                     _buildFeedbackCard(),
                     const SizedBox(height: 28),
                     // v1.0: 回復メニュー (RecoveryHubScreen) への遷移は UI/UX 未確定のため
