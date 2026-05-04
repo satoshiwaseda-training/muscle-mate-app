@@ -249,9 +249,11 @@ class _WorkoutResultScreenState extends State<WorkoutResultScreen>
                     _buildMascotCallout(),
                     const SizedBox(height: 18),
                     _buildFeedbackCard(),
-                    const SizedBox(height: 20),
-                    _buildNextBestActionSection(),
                     const SizedBox(height: 28),
+                    // v1.0: 回復メニュー (RecoveryHubScreen) への遷移は UI/UX 未確定のため
+                    // 一旦非表示にしている。v1.1 以降で再表示する場合は次の行を有効化：
+                    //   _buildNextBestActionSection(),
+                    //   const SizedBox(height: 28),
                     _buildHomeButton(),
                   ],
                 ),
