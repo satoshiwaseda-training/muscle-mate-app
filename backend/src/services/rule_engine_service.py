@@ -35,6 +35,7 @@ from src.schemas.workout import (
     WorkoutResponse,
 )
 from src.services import rag_service
+from src.services import history_optimizer
 from src.services.protein_calculator import calculate_protein
 
 
@@ -875,10 +876,26 @@ def _build_strength_block_schedule(
 # ── 公開API ────────────────────────────────────────────────────────────────
 
 def build_workout_response(req: WorkoutRequest) -> WorkoutResponse:
-    """ルールベースで WorkoutResponse を組み立てる。永続化しない。"""
+    """ルールベースで WorkoutResponse を組み立てる。永続化しない。
+
+    v1.0 拡張: req.recent_history が渡された場合、history_optimizer で
+    論文ベースのヒューリスティクスを適用する（target_muscles 推奨・
+    強度補正・提案根拠テキスト）。
+    """
     try:
+        # v1.0: 履歴ベースの最適化（recent_history が渡されたときのみ）
+        history = req.recent_history
+        history_suggested_targets = history_optimizer.suggest_target_muscles(req, history)
+        if history_suggested_targets and not req.target_muscles:
+            # 履歴から推奨ターゲットが導かれた場合、req を書き換える（コピーで安全に）
+            req = req.model_copy(update={"target_muscles": history_suggested_targets})
+
         excluded = _injured_regions(req.injury_history)
         pct, label = _intensity_for(req.goal)
+        # 復帰セッション or 痛み報告複数 → 強度を 90% に減衰
+        if history_optimizer.should_reduce_intensity(history):
+            pct = round(pct * 0.9, 1)
+
         split_id = _choose_split(req)
 
         if split_id == "focused_session":
@@ -938,12 +955,18 @@ def build_workout_response(req: WorkoutRequest) -> WorkoutResponse:
                     if not ex.evidence_refs:
                         ex.evidence_refs = list(evidence_ids)
 
+        # v1.0: 履歴ベースの提案根拠テキストを生成
+        rationale = history_optimizer.build_rationale(
+            req, history, split_id, history_suggested_targets,
+        )
+
         plan = WorkoutPlan(
             plan_name=plan_name,
             duration_weeks=duration_weeks,
             weekly_schedule=sessions,
             general_advice=_general_advice(req, label),
             safety_flags=plan_safety_flags,
+            proposal_rationale=rationale,
         )
 
         advisory = Advisory(level=AdvisoryLevel.NONE)

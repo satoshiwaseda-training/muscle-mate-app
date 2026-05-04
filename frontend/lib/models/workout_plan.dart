@@ -117,6 +117,10 @@ class WorkoutRequest {
   final double? bodyWeightKg;
   final double? yearsOfTraining;
 
+  // v1.0 (履歴ベースの最適化): LocalStorageService.buildRecentHistorySummary
+  // で生成した集計値を Map で渡す。サーバーは永続化しない。
+  final Map<String, dynamic>? recentHistory;
+
   const WorkoutRequest({
     required this.goal,
     required this.level,
@@ -130,6 +134,7 @@ class WorkoutRequest {
     this.priorityLift,
     this.bodyWeightKg,
     this.yearsOfTraining,
+    this.recentHistory,
   });
 
   Map<String, dynamic> toJson() => {
@@ -146,6 +151,7 @@ class WorkoutRequest {
           'priority_lift': priorityLift!.value,
         if (bodyWeightKg != null) 'body_weight_kg': bodyWeightKg,
         if (yearsOfTraining != null) 'years_of_training': yearsOfTraining,
+        if (recentHistory != null) 'recent_history': recentHistory,
       };
 }
 
@@ -252,6 +258,36 @@ class DaySession {
       };
 }
 
+/// 提案根拠（v1.0 で追加）。論文ベースのルールが何を見て何を選んだかを格納。
+class ProposalRationale {
+  final String summary;
+  final List<String> bullets;
+  final List<String> evidenceRefs;
+
+  const ProposalRationale({
+    required this.summary,
+    this.bullets = const [],
+    this.evidenceRefs = const [],
+  });
+
+  factory ProposalRationale.fromJson(Map<String, dynamic> json) =>
+      ProposalRationale(
+        summary: json['summary'] as String,
+        bullets: json['bullets'] != null
+            ? List<String>.from(json['bullets'] as List)
+            : const [],
+        evidenceRefs: json['evidence_refs'] != null
+            ? List<String>.from(json['evidence_refs'] as List)
+            : const [],
+      );
+
+  Map<String, dynamic> toJson() => {
+        'summary': summary,
+        'bullets': bullets,
+        'evidence_refs': evidenceRefs,
+      };
+}
+
 class WorkoutPlan {
   final String planName;
   final int durationWeeks;
@@ -261,12 +297,16 @@ class WorkoutPlan {
   // v5 で追加
   final List<String> safetyFlags;
 
+  // v1.0 で追加: 履歴ベース最適化が走った時の提案根拠
+  final ProposalRationale? proposalRationale;
+
   const WorkoutPlan({
     required this.planName,
     required this.durationWeeks,
     required this.weeklySchedule,
     required this.generalAdvice,
     this.safetyFlags = const [],
+    this.proposalRationale,
   });
 
   factory WorkoutPlan.fromJson(Map<String, dynamic> json) => WorkoutPlan(
@@ -279,6 +319,10 @@ class WorkoutPlan {
         safetyFlags: json['safety_flags'] != null
             ? List<String>.from(json['safety_flags'] as List)
             : const [],
+        proposalRationale: json['proposal_rationale'] != null
+            ? ProposalRationale.fromJson(
+                json['proposal_rationale'] as Map<String, dynamic>)
+            : null,
       );
 
   Map<String, dynamic> toJson() => {
@@ -287,6 +331,8 @@ class WorkoutPlan {
         'weekly_schedule': weeklySchedule.map((s) => s.toJson()).toList(),
         'general_advice': generalAdvice,
         'safety_flags': safetyFlags,
+        if (proposalRationale != null)
+          'proposal_rationale': proposalRationale!.toJson(),
       };
 }
 

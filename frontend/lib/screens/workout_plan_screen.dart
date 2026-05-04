@@ -455,6 +455,12 @@ class _WorkoutPlanScreenState extends State<WorkoutPlanScreen> {
           ),
           const SizedBox(height: 16),
 
+          // ── 提案の根拠（v1.0: 履歴ベースの最適化が走った時のみ表示）─────
+          if (_editablePlan.proposalRationale != null) ...[
+            _RationaleCard(rationale: _editablePlan.proposalRationale!),
+            const SizedBox(height: 16),
+          ],
+
           // ── 当日分のメニュー（1 セッションのみ表示）──────────
           // weeklySchedule は同一内容を days_per_week 分繰り返した配列なので、
           // 先頭 1 件のみ表示する。曜日ラベルは表示しない（「今日」前提）。
@@ -772,4 +778,98 @@ class _ReplacementOption {
     this.benefit,
     this.recommended = false,
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _RationaleCard
+//   履歴ベース最適化が走った時に表示する「提案の根拠」セクション。
+//   論文ベースのルールが何を見て何を選んだかを transparent に説明する。
+//   AI 表記は使わない（v1.3 計画書準拠）。
+// ─────────────────────────────────────────────────────────────────────────────
+class _RationaleCard extends StatelessWidget {
+  final ProposalRationale rationale;
+  const _RationaleCard({required this.rationale});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.32),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.menu_book_outlined,
+                  color: AppColors.primary, size: 18),
+              const SizedBox(width: 8),
+              const Text(
+                'このメニューを選んだ理由',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            rationale.summary,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              height: 1.5,
+            ),
+          ),
+          if (rationale.bullets.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ...rationale.bullets.map(
+              (b) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 5, right: 6),
+                      child: Icon(Icons.fiber_manual_record,
+                          color: AppColors.primary, size: 6),
+                    ),
+                    Expanded(
+                      child: Text(
+                        b,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 12,
+                          height: 1.55,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          if (rationale.evidenceRefs.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              '参照: ${rationale.evidenceRefs.join("、")}（詳細はメニュー → 論文の出典）',
+              style: TextStyle(
+                color: AppColors.textSecond.withValues(alpha: 0.85),
+                fontSize: 10,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }

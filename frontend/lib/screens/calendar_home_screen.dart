@@ -16,6 +16,7 @@ import 'recovery_hub_screen.dart';
 import 'history_screen.dart';
 import 'settings_screen.dart';
 import 'privacy_policy_screen.dart';
+import 'citations_screen.dart';
 
 class CalendarHomeScreen extends StatefulWidget {
   const CalendarHomeScreen({super.key});
@@ -1678,6 +1679,18 @@ class _AppDrawer extends StatelessWidget {
               },
             ),
             const Divider(color: AppColors.border, height: 1),
+            _DrawerTile(
+              icon: Icons.menu_book_outlined,
+              label: '論文の出典',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const CitationsScreen()),
+                );
+              },
+            ),
             _DrawerTile(
               icon: Icons.privacy_tip_outlined,
               label: 'プライバシーポリシー',

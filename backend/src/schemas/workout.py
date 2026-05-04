@@ -113,6 +113,56 @@ class Injury(BaseModel):
     note: Optional[str] = Field(None, max_length=200, description="補足（任意）")
 
 
+class RecentHistorySummary(BaseModel):
+    """過去 30 日のトレーニング記録サマリ。
+
+    端末内 SQLite から生成されてリクエスト時のみサーバーへ送信される。
+    サーバー側は永続化せず、メニュー生成のヒントとしてのみ参照する。
+    個別レコードの内容（重量・レップ等）は送信しない（集計値のみ）。
+
+    根拠論文との対応:
+        - sessions_last_7_days / muscles_unworked_14d
+            → Currier 2023 BJSM (週 2-3 回 / 筋群が最適、頻度より週ボリューム重視)
+        - last_session_days_ago
+            → Buresh 2009 (セッション間 48h 休養)
+        - recent_muscle_focus_7d
+            → Currier 2023 + 一般原則 (同一筋群連続を避ける)
+        - pain_reports_last_7d
+            → 安全側ガード（injury_history と多重防御）
+    """
+    last_session_days_ago: Optional[int] = Field(
+        None, ge=0, description="直近セッションからの経過日数（記録ゼロなら None）"
+    )
+    sessions_last_7_days: int = Field(
+        0, ge=0, le=14, description="過去 7 日のセッション数"
+    )
+    sessions_last_30_days: int = Field(
+        0, ge=0, le=60, description="過去 30 日のセッション数"
+    )
+    avg_weekly_volume_kg_30d: float = Field(
+        0.0, ge=0, description="過去 30 日の平均週ボリューム (kg・全種目合計)"
+    )
+    recent_muscle_focus_7d: dict[str, int] = Field(
+        default_factory=dict,
+        description="過去 7 日に各筋群を鍛えた回数 例: {'chest': 3, 'back': 1}",
+    )
+    muscles_unworked_14d: List[str] = Field(
+        default_factory=list,
+        description="過去 14 日間 1 度も鍛えていない筋群 例: ['back', 'shoulders']",
+    )
+    streak_days: int = Field(
+        0, ge=0, description="連続記録日数"
+    )
+    pain_reports_last_7d: dict[str, int] = Field(
+        default_factory=dict,
+        description="過去 7 日の痛み報告（部位別件数） 例: {'knee': 2}",
+    )
+    top_exercises_30d: List[str] = Field(
+        default_factory=list, max_length=10,
+        description="過去 30 日で実施回数が多い種目名（最大 10）",
+    )
+
+
 class WorkoutRequest(BaseModel):
     """ユーザーが入力する情報。永続保存しない（計画書 §11.4）。"""
     goal: Goal = Field(..., description="トレーニング目標")
@@ -153,6 +203,16 @@ class WorkoutRequest(BaseModel):
     session_hour: Optional[int] = Field(
         None, ge=0, le=23,
         description="セッション開始予定時刻（24h、任意・カフェインカードの時刻調整用）",
+    )
+
+    # v1.0 (記録ベースの最適化) で追加: 過去 30 日のサマリ
+    recent_history: Optional[RecentHistorySummary] = Field(
+        None,
+        description=(
+            "端末内 SQLite から集計した過去 30 日のトレーニング記録サマリ。"
+            "渡された場合、ルールエンジンは論文ベースのヒューリスティクスで"
+            "提案を最適化する。サーバーは永続化しない。"
+        ),
     )
 
     @field_validator("equipment")
@@ -208,6 +268,29 @@ class DaySession(BaseModel):
         return v
 
 
+class ProposalRationale(BaseModel):
+    """提案根拠。論文ベースのルールが何を見て何を選んだかを記録。
+
+    v1.0 で導入。AI 表記は一切使わず「論文ベースのルールが過去の記録から
+    導いた結論」として説明する。
+    """
+    summary: str = Field(
+        ...,
+        description="1〜2 文の総括（例: 「直近 7 日でスクワット系が多いため、今日は背中中心」）",
+    )
+    bullets: List[str] = Field(
+        default_factory=list,
+        description="判断材料の箇条書き（最大 5 個）",
+    )
+    evidence_refs: List[str] = Field(
+        default_factory=list,
+        description=(
+            "提案の根拠となった論文・プログラムの evidence_id 一覧 "
+            "（例: ['theme_training_meta_analysis', 'beginner_full_body']）"
+        ),
+    )
+
+
 class WorkoutPlan(BaseModel):
     """週間ワークアウトプラン"""
     plan_name: str = Field(..., description="プラン名")
@@ -217,6 +300,10 @@ class WorkoutPlan(BaseModel):
     safety_flags: List[str] = Field(
         default_factory=list,
         description="プラン全体の安全フラグ（例: ['pain_reported', 'partial_skip']）",
+    )
+    proposal_rationale: Optional[ProposalRationale] = Field(
+        None,
+        description="提案根拠（履歴ベースの最適化が走った場合に格納）",
     )
 
 

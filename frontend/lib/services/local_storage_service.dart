@@ -130,4 +130,151 @@ class LocalStorageService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_plannedSessionKey);
   }
+
+  // ── 履歴サマリ集計（v1.0: 論文ベース最適化用）─────────────────────────
+  //
+  // 端末内の WorkoutRecord 全件から過去 30 日のサマリを作る。
+  // 個別レコードの内容（重量・レップ等）は送信せず、集計値のみをリクエスト
+  // ボディに含める（プライバシーポリシー §5 と整合）。
+
+  /// 過去 30 日のトレーニング記録サマリを返す。
+  /// バックエンドの RecentHistorySummary スキーマと完全対応する。
+  static Future<Map<String, dynamic>> buildRecentHistorySummary({
+    DateTime? now,
+  }) async {
+    final reference = now ?? DateTime.now();
+    final all = await loadAll();
+    if (all.isEmpty) {
+      return {
+        'last_session_days_ago': null,
+        'sessions_last_7_days': 0,
+        'sessions_last_30_days': 0,
+        'avg_weekly_volume_kg_30d': 0.0,
+        'recent_muscle_focus_7d': <String, int>{},
+        'muscles_unworked_14d': <String>[],
+        'streak_days': 0,
+        'pain_reports_last_7d': <String, int>{},
+        'top_exercises_30d': <String>[],
+      };
+    }
+
+    // 期間内のレコードを抽出
+    final last7 = all
+        .where((r) => reference.difference(r.date).inDays < 7)
+        .toList();
+    final last14 = all
+        .where((r) => reference.difference(r.date).inDays < 14)
+        .toList();
+    final last30 = all
+        .where((r) => reference.difference(r.date).inDays < 30)
+        .toList();
+
+    // 直近セッションからの経過日数
+    final mostRecent = all.first; // loadAll は新しい順ソート済み
+    final daysAgo = reference.difference(mostRecent.date).inDays;
+
+    // 過去 7 日の筋群フォーカス
+    final focus7d = <String, int>{};
+    for (final r in last7) {
+      for (final m in r.trainedMuscles) {
+        focus7d[m] = (focus7d[m] ?? 0) + 1;
+      }
+    }
+
+    // 14 日間鍛えていない代表 6 筋群を導出
+    const _trackedMuscles = [
+      'chest', 'back', 'shoulders', 'legs', 'core', 'arms',
+    ];
+    final muscles14d = last14
+        .expand((r) => r.trainedMuscles)
+        .toSet();
+    final unworked14d = _trackedMuscles
+        .where((m) => !muscles14d.contains(m))
+        .toList();
+
+    // 週ボリューム平均（過去 30 日 / 4.286 週）
+    final totalVolume30d =
+        last30.fold<double>(0, (sum, r) => sum + r.totalVolume);
+    final avgWeeklyVolume = last30.isEmpty
+        ? 0.0
+        : (totalVolume30d / 30 * 7);
+
+    // 連続日数
+    final streak = _computeStreak(all, reference);
+
+    // 痛み報告（entertainment 内に pain_regions が入る場合に対応）
+    final painCounts = <String, int>{};
+    for (final r in last7) {
+      final ent = r.entertainment;
+      if (ent == null) continue;
+      final regions = ent['pain_regions'];
+      if (regions is List) {
+        for (final region in regions) {
+          if (region is String) {
+            painCounts[region] = (painCounts[region] ?? 0) + 1;
+          }
+        }
+      }
+    }
+
+    // 種目頻度上位 10
+    final exCounts = <String, int>{};
+    for (final r in last30) {
+      for (final s in r.sets) {
+        exCounts[s.exerciseName] = (exCounts[s.exerciseName] ?? 0) + 1;
+      }
+    }
+    final topExercises = exCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final top10 = topExercises.take(10).map((e) => e.key).toList();
+
+    return {
+      'last_session_days_ago': daysAgo,
+      'sessions_last_7_days': _uniqueDays(last7).length,
+      'sessions_last_30_days': _uniqueDays(last30).length,
+      'avg_weekly_volume_kg_30d': avgWeeklyVolume,
+      'recent_muscle_focus_7d': focus7d,
+      'muscles_unworked_14d': unworked14d,
+      'streak_days': streak,
+      'pain_reports_last_7d': painCounts,
+      'top_exercises_30d': top10,
+    };
+  }
+
+  static Set<String> _uniqueDays(List<WorkoutRecord> records) {
+    return records
+        .map((r) => '${r.date.year}-${r.date.month}-${r.date.day}')
+        .toSet();
+  }
+
+  static int _computeStreak(List<WorkoutRecord> all, DateTime reference) {
+    if (all.isEmpty) return 0;
+    final days = _uniqueDays(all)
+        .map((s) {
+          final parts = s.split('-').map(int.parse).toList();
+          return DateTime(parts[0], parts[1], parts[2]);
+        })
+        .toList()
+      ..sort((a, b) => b.compareTo(a));
+    if (days.isEmpty) return 0;
+
+    var streak = 0;
+    var cursor = DateTime(reference.year, reference.month, reference.day);
+    final daySet = days.toSet();
+    while (daySet.contains(cursor)) {
+      streak++;
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+    // 「今日記録がなくても昨日まで連続なら継続」を許容するため、
+    // 今日記録がない場合は1日だけ前に巻き戻して再判定
+    if (streak == 0) {
+      cursor = DateTime(reference.year, reference.month, reference.day)
+          .subtract(const Duration(days: 1));
+      while (daySet.contains(cursor)) {
+        streak++;
+        cursor = cursor.subtract(const Duration(days: 1));
+      }
+    }
+    return streak;
+  }
 }

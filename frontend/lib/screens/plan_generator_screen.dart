@@ -195,6 +195,10 @@ class _PlanGeneratorScreenState extends State<PlanGeneratorScreen> {
 
     setState(() => _generating = true);
 
+    // v1.0: 端末内の過去 30 日の記録を集計してリクエストに同梱
+    // （サーバーは永続化せず、メニュー提案のヒントとしてのみ参照する）
+    final recentHistory = await LocalStorageService.buildRecentHistorySummary();
+
     final request = WorkoutRequest(
       goal: _selectedGoal,
       level: _level,
@@ -204,6 +208,7 @@ class _PlanGeneratorScreenState extends State<PlanGeneratorScreen> {
       targetMuscles: _selectedMuscles.toList(),
       notes: _comfortNotes(),
       big3Max: _big3Max,
+      recentHistory: recentHistory,
     );
 
     final response = await ApiService.generateWorkoutPlan(request);
