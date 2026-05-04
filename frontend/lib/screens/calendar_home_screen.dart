@@ -13,6 +13,9 @@ import '../widgets/muscle_visualizer.dart';
 import 'plan_generator_screen.dart';
 import 'manual_workout_builder_screen.dart';
 import 'recovery_hub_screen.dart';
+import 'history_screen.dart';
+import 'settings_screen.dart';
+import 'privacy_policy_screen.dart';
 
 class CalendarHomeScreen extends StatefulWidget {
   const CalendarHomeScreen({super.key});
@@ -666,6 +669,7 @@ class _CalendarHomeScreenState extends State<CalendarHomeScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      drawer: const _AppDrawer(),
       body: _loading
           ? const Center(
               child: CircularProgressIndicator(color: AppColors.primary))
@@ -673,8 +677,13 @@ class _CalendarHomeScreenState extends State<CalendarHomeScreen> {
               slivers: [
                 // ── ヘッダー ───────────────────────────────────────────
                 SliverToBoxAdapter(
-                  child: _Header(
-                      streak: streak, todayDone: todayRecords.isNotEmpty),
+                  child: Builder(
+                    builder: (context) => _Header(
+                      streak: streak,
+                      todayDone: todayRecords.isNotEmpty,
+                      onMenuTap: () => Scaffold.of(context).openDrawer(),
+                    ),
+                  ),
                 ),
 
                 SliverToBoxAdapter(
@@ -726,20 +735,32 @@ class _CalendarHomeScreenState extends State<CalendarHomeScreen> {
 class _Header extends StatelessWidget {
   final int streak;
   final bool todayDone;
-  const _Header({required this.streak, required this.todayDone});
+  final VoidCallback onMenuTap;
+  const _Header({
+    required this.streak,
+    required this.todayDone,
+    required this.onMenuTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(22, 44, 22, 20),
+      padding: const EdgeInsets.fromLTRB(10, 40, 22, 20),
       decoration: const BoxDecoration(
         color: AppColors.background,
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.menu, color: AppColors.textSecond, size: 28),
-          SizedBox(width: 22),
-          Expanded(
+          // ハンバーガーメニュー: タップで Drawer (サイドメニュー) を開く
+          IconButton(
+            onPressed: onMenuTap,
+            icon: const Icon(Icons.menu,
+                color: AppColors.textSecond, size: 28),
+            tooltip: 'メニューを開く',
+            padding: const EdgeInsets.all(12),
+          ),
+          const SizedBox(width: 6),
+          const Expanded(
             child: Text(
               '💪 Muscle Mate',
               style: TextStyle(
@@ -749,7 +770,8 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
-          Icon(Icons.notifications_none, color: AppColors.textSecond),
+          // v1.0 では通知機能を提供しないためベルアイコンは削除済み。
+          // 通知 (UNUserNotificationCenter) を実装する v1.1 以降で再追加する。
         ],
       ),
     );
@@ -1577,6 +1599,157 @@ class _RecordDetailCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _AppDrawer
+//   ハンバーガーメニューから開くサイドメニュー。v1.0 で必要な遷移をすべて
+//   1 箇所に集約する。各項目をタップすると Drawer を閉じてから対象画面に
+//   遷移する (showDialog 系は閉じずに重ね表示)。
+// ─────────────────────────────────────────────────────────────────────────────
+class _AppDrawer extends StatelessWidget {
+  const _AppDrawer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      backgroundColor: AppColors.surface,
+      child: SafeArea(
+        child: Column(
+          children: [
+            // ── ヘッダー（ロゴ + タグライン）─────────────────────────
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.primary, AppColors.primaryDim],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '💪 Muscle Mate',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'シンプルな筋トレ記録',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // ── メニュー項目 ─────────────────────────────────────────
+            _DrawerTile(
+              icon: Icons.history,
+              label: '履歴',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HistoryScreen()),
+                );
+              },
+            ),
+            _DrawerTile(
+              icon: Icons.settings_outlined,
+              label: '設定',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                );
+              },
+            ),
+            const Divider(color: AppColors.border, height: 1),
+            _DrawerTile(
+              icon: Icons.privacy_tip_outlined,
+              label: 'プライバシーポリシー',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const PrivacyPolicyScreen()),
+                );
+              },
+            ),
+            _DrawerTile(
+              icon: Icons.info_outline,
+              label: 'アプリについて',
+              onTap: () {
+                Navigator.pop(context);
+                showAboutDialog(
+                  context: context,
+                  applicationName: 'Muscle Mate',
+                  applicationVersion: 'v1.0.0',
+                  applicationLegalese:
+                      '© Muscle Musician\n\nシンプルな筋トレ記録アプリ。\n'
+                      'GitHub: github.com/satoshiwaseda-training/muscle-mate-app',
+                );
+              },
+            ),
+
+            const Spacer(),
+
+            // ── フッター（バージョン表示）─────────────────────────────
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'Muscle Mate v1.0.0',
+                style: TextStyle(
+                  color: AppColors.textSecond.withValues(alpha: 0.6),
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawerTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _DrawerTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon, color: AppColors.primary, size: 22),
+      title: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.textPrimary,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      onTap: onTap,
+      dense: true,
     );
   }
 }
