@@ -50,59 +50,112 @@ class _ManualWorkoutBuilderScreenState
                     borderRadius:
                         BorderRadius.vertical(top: Radius.circular(22)),
                   ),
-                  child: ListView(
-                    controller: controller,
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  child: Column(
                     children: [
-                      const Text(
-                        '種目を選ぶ',
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
+                      // ── ドラッグハンドル（視覚的な案内）──────────────
+                      Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(top: 10, bottom: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.border,
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: _groupOrder.map((group) {
-                            final selected = group == selectedGroup;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ChoiceChip(
-                                label: Text(_groupLabels[group] ?? group),
+
+                      // ── スクロール可能領域：タイトル + 部位タブ + 種目一覧 ─
+                      Expanded(
+                        child: ListView(
+                          controller: controller,
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                          children: [
+                            const Text(
+                              '種目を選ぶ',
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: _groupOrder.map((group) {
+                                  final selected = group == selectedGroup;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: ChoiceChip(
+                                      label:
+                                          Text(_groupLabels[group] ?? group),
+                                      selected: selected,
+                                      onSelected: (_) {
+                                        setModalState(
+                                            () => selectedGroup = group);
+                                        setState(
+                                            () => _selectedGroup = group);
+                                      },
+                                      selectedColor: AppColors.primary,
+                                      backgroundColor: AppColors.surfaceHigh,
+                                      labelStyle: TextStyle(
+                                        color: selected
+                                            ? AppColors.background
+                                            : AppColors.textPrimary,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            ...exercises.map((exercise) {
+                              final selected = _drafts.any((draft) =>
+                                  draft.exercise.nameJa == exercise.nameJa);
+                              return _ExercisePickCard(
+                                exercise: exercise,
                                 selected: selected,
-                                onSelected: (_) {
-                                  setModalState(() => selectedGroup = group);
-                                  setState(() => _selectedGroup = group);
+                                onTap: () {
+                                  _toggleExercise(exercise);
+                                  setModalState(() {});
                                 },
-                                selectedColor: AppColors.primary,
-                                backgroundColor: AppColors.surfaceHigh,
-                                labelStyle: TextStyle(
-                                  color: selected
-                                      ? AppColors.background
-                                      : AppColors.textPrimary,
-                                  fontWeight: FontWeight.w800,
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
+
+                      // ── 選択完了ボタン（常時画面下部に固定表示）──────
+                      SafeArea(
+                        top: false,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: () => Navigator.pop(context),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: AppColors.background,
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
                                 ),
                               ),
-                            );
-                          }).toList(),
+                              icon: const Icon(Icons.check),
+                              label: Text(
+                                _drafts.isEmpty
+                                    ? '閉じる'
+                                    : '選択完了（${_drafts.length} 種目）',
+                                style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      ...exercises.map((exercise) {
-                        final selected = _drafts.any((draft) =>
-                            draft.exercise.nameJa == exercise.nameJa);
-                        return _ExercisePickCard(
-                          exercise: exercise,
-                          selected: selected,
-                          onTap: () {
-                            _toggleExercise(exercise);
-                            setModalState(() {});
-                          },
-                        );
-                      }),
                     ],
                   ),
                 );
