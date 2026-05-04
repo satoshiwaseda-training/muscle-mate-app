@@ -32,7 +32,7 @@ class _PolicyContent extends StatelessWidget {
       children: [
         _section('最終更新日', '2026年5月3日（v1.0 提出版）'),
         _section('1. はじめに',
-            'Muscle Mate（以下「本アプリ」）は、サトシ・ワセダ（以下「開発者」）が提供する筋力トレーニング支援アプリケーションです。'
+            'Muscle Mate（以下「本アプリ」）は、Muscle Musician（以下「開発者」）が提供する筋力トレーニング支援アプリケーションです。'
             '本プライバシーポリシーは、お客様の個人情報の取り扱いについて説明します。'),
         _section('2. 収集する情報',
             '本アプリは以下の情報を扱います：\n\n'
