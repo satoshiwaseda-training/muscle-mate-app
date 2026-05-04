@@ -440,8 +440,8 @@ class _WorkoutPlanScreenState extends State<WorkoutPlanScreen> {
                 Text(_editablePlan.planName,
                     style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 4),
-                Text('推奨期間: ${_editablePlan.durationWeeks}週間',
-                    style: const TextStyle(color: AppColors.textSecond)),
+                const Text('今日やる 1 セッション分のメニュー',
+                    style: TextStyle(color: AppColors.textSecond)),
                 const Divider(height: 24, color: AppColors.border),
                 const Text('総合アドバイス',
                     style: TextStyle(
@@ -455,19 +455,19 @@ class _WorkoutPlanScreenState extends State<WorkoutPlanScreen> {
           ),
           const SizedBox(height: 16),
 
-          // ── 週間スケジュール ───────────────────────────────
-          ..._editablePlan.weeklySchedule.asMap().entries.map(
-                (entry) => _SessionCard(
-                  sessionIndex: entry.key,
-                  session: entry.value,
-                  plan: _editablePlan,
-                  onReplace: (exerciseIndex, exercise) =>
-                      _showReplaceSheet(context, entry.key, exerciseIndex, exercise),
-                  onDelete: (exerciseIndex) =>
-                      _deleteExercise(entry.key, exerciseIndex),
-                  groupLabel: _groupLabel,
-                ),
-              ),
+          // ── 当日分のメニュー（1 セッションのみ表示）──────────
+          // weeklySchedule は同一内容を days_per_week 分繰り返した配列なので、
+          // 先頭 1 件のみ表示する。曜日ラベルは表示しない（「今日」前提）。
+          if (_editablePlan.weeklySchedule.isNotEmpty)
+            _SessionCard(
+              sessionIndex: 0,
+              session: _editablePlan.weeklySchedule.first,
+              plan: _editablePlan,
+              onReplace: (exerciseIndex, exercise) =>
+                  _showReplaceSheet(context, 0, exerciseIndex, exercise),
+              onDelete: (exerciseIndex) => _deleteExercise(0, exerciseIndex),
+              groupLabel: _groupLabel,
+            ),
         ],
       ),
     );
@@ -517,7 +517,7 @@ class _SessionCard extends StatelessWidget {
             child: ExpansionTile(
               initiallyExpanded: true,
               title: Text(
-                '${_dayLabel(session.dayOfWeek)}：${session.sessionName}',
+                '今日のメニュー：${session.sessionName}',
                 style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary),

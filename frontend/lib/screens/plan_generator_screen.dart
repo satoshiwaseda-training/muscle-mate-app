@@ -82,7 +82,10 @@ class PlanGeneratorScreen extends StatefulWidget {
 class _PlanGeneratorScreenState extends State<PlanGeneratorScreen> {
   Goal _selectedGoal = Goal.general;
   final Set<String> _selectedMuscles = {};
-  final int _daysPerWeek = 3; // デフォルト週3日
+  // 当日 1 セッションのみ表示する仕様 (workout_plan_screen.dart 参照)。
+  // バックエンドは days_per_week 分の同一セッションを返すので、1 に固定して
+  // 不要な往復を減らす。
+  final int _daysPerWeek = 1;
   int _sessionDurationMinutes = 30;
   final Set<String> _comfortFlags = {'light'};
 
