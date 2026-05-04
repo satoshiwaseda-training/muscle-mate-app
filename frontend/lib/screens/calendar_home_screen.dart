@@ -1643,7 +1643,7 @@ class _AppDrawer extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '筋トレの記録をもっとシンプルに。',
+                    '筋トレをもっと気軽に楽しく',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.85),
                       fontSize: 12,
@@ -1700,7 +1700,7 @@ class _AppDrawer extends StatelessWidget {
                   applicationName: 'Muscle Mate',
                   applicationVersion: 'v1.0.0',
                   applicationLegalese:
-                      '© Muscle Musician\n\n筋トレの記録をもっとシンプルに。\n'
+                      '© Muscle Musician\n\n筋トレをもっと気軽に楽しく\n'
                       'GitHub: github.com/satoshiwaseda-training/muscle-mate-app',
                 );
               },
