@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>プライバシーポリシー — Muscle Mate</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 32px 20px;
+    line-height: 1.8;
+    color: #1B2225;
+    background: #FAFAF8;
+  }
+  h1 {
+    color: #FF8A3D;
+    border-bottom: 2px solid #FF8A3D;
+    padding-bottom: 8px;
+    font-size: 24px;
+  }
+  h2 {
+    color: #1B2225;
+    margin-top: 32px;
+    font-size: 18px;
+    border-left: 4px solid #FF8A3D;
+    padding-left: 10px;
+  }
+  h3 {
+    color: #1B2225;
+    margin-top: 20px;
+    font-size: 15px;
+  }
+  ul, ol {
+    padding-left: 24px;
+  }
+  li { margin: 6px 0; }
+  blockquote {
+    border-left: 3px solid #ccc;
+    margin-left: 0;
+    padding: 8px 16px;
+    background: #f0f0ec;
+    color: #555;
+    font-size: 14px;
+  }
+  .meta {
+    color: #777;
+    font-size: 13px;
+  }
+  .footer {
+    margin-top: 48px;
+    padding: 16px;
+    background: #f0f0ec;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 13px;
+    color: #555;
+  }
+  .nav {
+    margin-bottom: 24px;
+    font-size: 13px;
+  }
+  .nav a { color: #FF8A3D; text-decoration: none; }
+  .nav a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+  <p class="nav"><a href="../index.html">← Muscle Mate トップに戻る</a></p>
+
+  <h1>プライバシーポリシー</h1>
+  <p class="meta">最終更新日：2026 年 5 月 3 日（v1.0 提出版）</p>
+
+  <h2>1. はじめに</h2>
+  <p>Muscle Mate（以下「本アプリ」）は、サトシ・ワセダ（以下「開発者」）が提供する筋力トレーニング支援アプリケーションです。本プライバシーポリシーは、お客様の個人情報の取り扱いについて説明します。</p>
+
+  <h2>2. 収集する情報</h2>
+  <p>本アプリは以下の情報を扱います。</p>
+  <h3>端末内に保存される情報</h3>
+  <ul>
+    <li>トレーニング記録（日時、種目、重量、回数、RPE、痛みの有無）</li>
+    <li>体力指標（BIG3 最大重量、トレーニングレベル）</li>
+    <li>任意入力（年齢、性別、体重、怪我履歴、自由記述）</li>
+    <li>アプリ設定（目標、週間頻度等）</li>
+  </ul>
+  <h3>サーバーで一時的に処理される情報</h3>
+  <p>メニュー生成リクエストとして上記の一部がサーバーに送信されますが、サーバーは永続保存しません（§5 参照）。</p>
+
+  <h2>3. メニュー生成の処理</h2>
+  <p>メニュー生成はサーバー上のルールベースエンジンで完結し、外部の AI サービスへは情報を送信しません。</p>
+
+  <h2>4. 外部 AI への送信について（v1.0）</h2>
+  <p>本バージョン（v1.0）では外部 AI への送信は提供していません。すべてのメニュー生成・アドバイス取得は当社サーバー内のルールエンジンで完結し、第三者 AI サービスへの送信は発生しません。</p>
+  <p>将来のバージョンで提供する場合は、明示同意とポリシー更新をもってお知らせします。</p>
+
+  <h2>5. サーバー保存ポリシー</h2>
+  <p>メニュー生成リクエストおよびトレーニング記録を永続化せず、ログ・APM・データベース・キャッシュにも本文を書きません。</p>
+  <p>サーバーは構造化メタデータ（経路・ステータス・処理時間・リクエスト ID）のみを保存します。</p>
+
+  <h2>6. インフラ事業者によるメタデータ処理</h2>
+  <p>本サービスの提供にあたり、CDN・WAF・ホスティング事業者が、IP アドレス・User-Agent 等の通信メタデータをセキュリティ・不正利用防止・障害対応の目的で処理する場合があります。これらは各事業者の規約に従って一定期間保持され得ます。</p>
+  <p>本アプリのサーバープロセスはこれらを永続保存せず、構造化ログにも本文を書き出しません。</p>
+
+  <h2>7. 端末内データ</h2>
+  <p>すべてのトレーニングデータと任意入力情報は端末内（SharedPreferences / SQLite）に保存されます。外部サーバーへのデータバックアップは行っていません。</p>
+  <p>設定画面の「アカウントデータを削除」から、本アプリが端末内に保存したすべてのデータを完全に削除できます。</p>
+
+  <h2>8. 医療助言の不提供</h2>
+  <p>本アプリは情報提供を目的としたフィットネス支援であり、医療助言・診断・治療を提供するものではありません。痛みや違和感がある場合は運動を中止し、医療専門家にご相談ください。</p>
+  <p>持病・術後・妊娠中・若年者は、運動開始前に主治医にご相談ください。</p>
+
+  <h2>9. 児童のプライバシー</h2>
+  <p>本アプリは 13 歳未満のお子様を対象としていません。初回起動時に 13 歳以上であることを自己申告いただきますが、年齢自体は保存しません（チェック状態のみ保存）。</p>
+
+  <h2>10. 同意撤回</h2>
+  <p>本バージョン（v1.0）では外部 AI への送信を提供していないため、外部 AI に関する同意取得・撤回フローはありません。</p>
+  <p>端末内データは「アカウントデータを削除」からいつでも完全消去できます。</p>
+
+  <h2>11. ポリシーの変更</h2>
+  <p>本プライバシーポリシーを変更する場合、アプリ内で通知します。重要な変更については再度同意をお願いする場合があります。</p>
+
+  <h2>12. お問い合わせ</h2>
+  <p>プライバシーに関するご質問は、<a href="https://github.com/satoshiwaseda-training/muscle-mate-app/issues">GitHub の Issue ページ</a>までお問い合わせください。</p>
+
+  <div class="footer">
+    本アプリを使用することで、本プライバシーポリシーに同意したものとみなします。
+  </div>
+</body>
+</html>

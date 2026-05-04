@@ -6,6 +6,7 @@ import '../models/workout_record.dart';
 import '../services/local_storage_service.dart';
 import '../widgets/muscle_visualizer.dart';
 import '../widgets/entertainment_banner.dart';
+import '../main.dart' show AppColors;
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -54,7 +55,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           : _records.isEmpty
               ? const Center(
                   child: Text(
-                    'まだ記録がありません。\nワークアウトを完了すると記録されます！',
+                    'まだ記録がありません。\n最初のトレーニングを記録してみましょう',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white54),
                   ),
@@ -70,15 +71,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           isSameDay(d, _selectedDay),
                       calendarStyle: CalendarStyle(
                         todayDecoration: BoxDecoration(
-                          color: const Color(0xFFE53935).withValues(alpha: 0.5),
+                          color: AppColors.primary.withValues(alpha: 0.5),
                           shape: BoxShape.circle,
                         ),
                         selectedDecoration: const BoxDecoration(
-                          color: Color(0xFFE53935),
+                          color: AppColors.primary,
                           shape: BoxShape.circle,
                         ),
                         markerDecoration: const BoxDecoration(
-                          color: Color(0xFFFF6D00),
+                          color: AppColors.marker,
                           shape: BoxShape.circle,
                         ),
                         outsideDaysVisible: false,

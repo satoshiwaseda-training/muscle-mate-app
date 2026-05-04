@@ -1,0 +1,48 @@
+{
+  "intensities": {
+    "chest": 0.99,
+    "back": 0.82,
+    "shoulders": 0.75,
+    "biceps": 0.42,
+    "triceps": 0.58,
+    "quads": 1.0,
+    "hamstrings": 0.62,
+    "glutes": 0.88,
+    "calves": 0.48,
+    "core": 0.72,
+    "structure": 0.12
+  },
+  "output_path": "C:\\Users\\User\\OneDrive\\Desktop\\muscle-mate-app\\backend\\renders\\satoshi_ultimate_anatomy.png",
+  "resolution_x": 1024,
+  "resolution_y": 2048,
+  "render_params": {
+    "material": {
+      "sss_base": 0.23,
+      "sss_multiplier": 0.2,
+      "roughness": 0.32,
+      "specular": 0.6,
+      "bump_strength": 0.55,
+      "fiber_distortion": 2.3,
+      "emission_threshold": 0.26,
+      "emission_strength": 8.0
+    },
+    "lighting": {
+      "key_energy": 700,
+      "key_color": [
+        0.95,
+        0.88,
+        0.7
+      ],
+      "fill_energy": 55,
+      "fill_color": [
+        0.65,
+        0.8,
+        0.95
+      ],
+      "rim_R_energy": 2600,
+      "rim_L_energy": 1700,
+      "top_energy": 350
+    },
+    "reasoning": "Optimized SSS, anisotropic reflection, bump strength, and emission for realistic muscle definition and high-contrast studio lighting."
+  }
+}

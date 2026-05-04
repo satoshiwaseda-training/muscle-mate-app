@@ -1,7 +1,7 @@
 name: muscle_mate
-description: Gemini AIを使った筋トレメニュー生成アプリ - サトシさんの120kg達成を支援
+description: ルールベースの筋トレメニュー生成アプリ（計画書 v5）。外部 AI は任意機能・既定オフ。
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -23,6 +23,15 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/ui/home/
+    - assets/ui/menu_builder/
+    - assets/ui/workout_session/
+    - assets/ui/result/
+    # 論文メタデータインデックス（計画書 v5 §5.4 の限定スキーマ）
+    # build_evidence_index.py で再生成。本文サマリは含めない
+    - assets/evidence_index.json
 
 flutter_launcher_icons:
   android: true

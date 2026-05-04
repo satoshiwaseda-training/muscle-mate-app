@@ -40,7 +40,7 @@ cp .env.example backend/.env
 # backend/.env に GOOGLE_API_KEY を設定
 ```
 
-### 2. バックエンド起動（Codespace）
+### 2. バックエンド起動
 
 ```bash
 cd backend
@@ -53,7 +53,15 @@ uvicorn main:app --reload --port 8000
 ```bash
 cd frontend
 flutter pub get
-flutter run
+flutter run -d chrome --dart-define=API_BASE_URL=http://127.0.0.1:8000
+```
+
+### 4. 開発用の一括起動
+
+PowerShell からプロジェクト直下で実行すると、バックエンドと Flutter Web を別ターミナルで起動できます。
+
+```powershell
+.\start_dev.ps1
 ```
 
 ## API エンドポイント

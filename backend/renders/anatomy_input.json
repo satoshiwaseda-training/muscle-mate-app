@@ -1,0 +1,50 @@
+{
+  "intensities": {
+    "chest": 0.99,
+    "back": 0.82,
+    "shoulders": 0.75,
+    "biceps": 0.42,
+    "triceps": 0.58,
+    "quads": 1.0,
+    "hamstrings": 0.62,
+    "glutes": 0.88,
+    "calves": 0.48,
+    "core": 0.72
+  },
+  "output_path": "C:\\Users\\User\\OneDrive\\Desktop\\muscle-mate-app\\backend\\renders\\satoshi_anatomy.png",
+  "resolution_x": 1024,
+  "resolution_y": 2048,
+  "render_params": {
+    "material": {
+      "sss_base": 0.22,
+      "sss_multiplier": 0.21,
+      "roughness": 0.32,
+      "specular": 0.6,
+      "bump_strength": 0.5,
+      "fiber_distortion": 2.5,
+      "emission_threshold": 0.3,
+      "emission_strength": 0.2
+    },
+    "lighting": {
+      "key_energy": 650,
+      "key_color": [
+        0.95,
+        0.85,
+        0.7
+      ],
+      "fill_energy": 100,
+      "fill_color": [
+        0.65,
+        0.8,
+        0.95
+      ],
+      "rim_R_energy": 1.5,
+      "rim_L_energy": 1400,
+      "top_energy": 300
+    },
+    "reasoning": "Cyclesの物理特性と筋肉の質感を考慮し、発光とSSS、ライティングのバランスを調整しました。",
+    "eevee": {
+      "ao_factor": 1.5
+    }
+  }
+}

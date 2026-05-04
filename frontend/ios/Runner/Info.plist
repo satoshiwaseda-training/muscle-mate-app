@@ -45,12 +45,15 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<!-- App Store 審査: フィットネスデータ利用の説明文 -->
-	<key>NSHealthShareUsageDescription</key>
-	<string>トレーニング記録を健康アプリと連携するために使用します</string>
-	<key>NSHealthUpdateUsageDescription</key>
-	<string>ワークアウトデータを健康アプリに書き込むために使用します</string>
-	<key>NSMotionUsageDescription</key>
-	<string>トレーニングの動き検出のために使用します</string>
+	<!--
+		v1.0 提出計画書 §5.1: HealthKit / CoreMotion は v1.0 では使用しない。
+		NSHealthShareUsageDescription / NSHealthUpdateUsageDescription /
+		NSMotionUsageDescription は記載があるだけで Apple の審査担当者から
+		ユーザビリティ目的の質問が来るため削除済み。
+		v1.1 で HealthKit 連携を追加する際は、Capability 追加と同時に再記述する。
+	-->
+	<!-- HTTPS のみ使用するため Standard Exemption: ITSAppUsesNonExemptEncryption=false -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

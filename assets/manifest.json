@@ -1,0 +1,509 @@
+[
+  {
+    "file": "screens/01_home_full_phone.png",
+    "box": [
+      0,
+      0,
+      650,
+      1365
+    ],
+    "size": [
+      650,
+      1365
+    ]
+  },
+  {
+    "file": "screens/02_menu_builder_full_phone.png",
+    "box": [
+      680,
+      0,
+      1320,
+      1365
+    ],
+    "size": [
+      640,
+      1365
+    ]
+  },
+  {
+    "file": "screens/03_workout_session_full_phone.png",
+    "box": [
+      1350,
+      0,
+      2048,
+      1365
+    ],
+    "size": [
+      698,
+      1365
+    ]
+  },
+  {
+    "file": "screens/01_home_screen_only.png",
+    "box": [
+      48,
+      50,
+      590,
+      1268
+    ],
+    "size": [
+      542,
+      1218
+    ]
+  },
+  {
+    "file": "screens/02_menu_builder_screen_only.png",
+    "box": [
+      735,
+      50,
+      1276,
+      1268
+    ],
+    "size": [
+      541,
+      1218
+    ]
+  },
+  {
+    "file": "screens/03_workout_session_screen_only.png",
+    "box": [
+      1411,
+      50,
+      1953,
+      1268
+    ],
+    "size": [
+      542,
+      1218
+    ]
+  },
+  {
+    "file": "home/home_header_logo_nav.png",
+    "box": [
+      60,
+      60,
+      582,
+      150
+    ],
+    "size": [
+      522,
+      90
+    ]
+  },
+  {
+    "file": "home/home_title_mascot_area.png",
+    "box": [
+      60,
+      165,
+      582,
+      330
+    ],
+    "size": [
+      522,
+      165
+    ]
+  },
+  {
+    "file": "home/home_mascot_character.png",
+    "box": [
+      398,
+      160,
+      570,
+      330
+    ],
+    "size": [
+      172,
+      170
+    ]
+  },
+  {
+    "file": "home/home_primary_create_menu_button.png",
+    "box": [
+      60,
+      347,
+      582,
+      437
+    ],
+    "size": [
+      522,
+      90
+    ]
+  },
+  {
+    "file": "home/home_action_buttons_record_rest.png",
+    "box": [
+      60,
+      458,
+      582,
+      545
+    ],
+    "size": [
+      522,
+      87
+    ]
+  },
+  {
+    "file": "home/home_weekly_progress_card.png",
+    "box": [
+      60,
+      568,
+      582,
+      762
+    ],
+    "size": [
+      522,
+      194
+    ]
+  },
+  {
+    "file": "home/home_calendar_card.png",
+    "box": [
+      60,
+      783,
+      582,
+      1130
+    ],
+    "size": [
+      522,
+      347
+    ]
+  },
+  {
+    "file": "home/home_bottom_navigation.png",
+    "box": [
+      50,
+      1160,
+      590,
+      1285
+    ],
+    "size": [
+      540,
+      125
+    ]
+  },
+  {
+    "file": "menu_builder/menu_header.png",
+    "box": [
+      735,
+      60,
+      1276,
+      150
+    ],
+    "size": [
+      541,
+      90
+    ]
+  },
+  {
+    "file": "menu_builder/menu_goal_section.png",
+    "box": [
+      730,
+      185,
+      1278,
+      390
+    ],
+    "size": [
+      548,
+      205
+    ]
+  },
+  {
+    "file": "menu_builder/menu_goal_health_card_selected.png",
+    "box": [
+      730,
+      235,
+      895,
+      380
+    ],
+    "size": [
+      165,
+      145
+    ]
+  },
+  {
+    "file": "menu_builder/menu_goal_strength_card.png",
+    "box": [
+      910,
+      235,
+      1080,
+      380
+    ],
+    "size": [
+      170,
+      145
+    ]
+  },
+  {
+    "file": "menu_builder/menu_goal_tone_card.png",
+    "box": [
+      1098,
+      235,
+      1262,
+      380
+    ],
+    "size": [
+      164,
+      145
+    ]
+  },
+  {
+    "file": "menu_builder/menu_condition_section.png",
+    "box": [
+      730,
+      420,
+      1278,
+      610
+    ],
+    "size": [
+      548,
+      190
+    ]
+  },
+  {
+    "file": "menu_builder/menu_condition_light_card_selected.png",
+    "box": [
+      730,
+      473,
+      893,
+      608
+    ],
+    "size": [
+      163,
+      135
+    ]
+  },
+  {
+    "file": "menu_builder/menu_condition_tired_card.png",
+    "box": [
+      910,
+      473,
+      1080,
+      608
+    ],
+    "size": [
+      170,
+      135
+    ]
+  },
+  {
+    "file": "menu_builder/menu_condition_pain_card.png",
+    "box": [
+      1098,
+      473,
+      1262,
+      608
+    ],
+    "size": [
+      164,
+      135
+    ]
+  },
+  {
+    "file": "menu_builder/menu_safety_note_card.png",
+    "box": [
+      730,
+      636,
+      1265,
+      740
+    ],
+    "size": [
+      535,
+      104
+    ]
+  },
+  {
+    "file": "menu_builder/menu_time_section.png",
+    "box": [
+      730,
+      778,
+      1278,
+      898
+    ],
+    "size": [
+      548,
+      120
+    ]
+  },
+  {
+    "file": "menu_builder/menu_time_30min_chip_selected.png",
+    "box": [
+      860,
+      825,
+      986,
+      894
+    ],
+    "size": [
+      126,
+      69
+    ]
+  },
+  {
+    "file": "menu_builder/menu_optional_input.png",
+    "box": [
+      730,
+      933,
+      1265,
+      1040
+    ],
+    "size": [
+      535,
+      107
+    ]
+  },
+  {
+    "file": "menu_builder/menu_generate_ai_button.png",
+    "box": [
+      730,
+      1078,
+      1265,
+      1163
+    ],
+    "size": [
+      535,
+      85
+    ]
+  },
+  {
+    "file": "menu_builder/menu_bottom_navigation.png",
+    "box": [
+      725,
+      1160,
+      1278,
+      1285
+    ],
+    "size": [
+      553,
+      125
+    ]
+  },
+  {
+    "file": "workout_session/workout_header.png",
+    "box": [
+      1405,
+      60,
+      1960,
+      150
+    ],
+    "size": [
+      555,
+      90
+    ]
+  },
+  {
+    "file": "workout_session/workout_warning_banner.png",
+    "box": [
+      1405,
+      176,
+      1940,
+      300
+    ],
+    "size": [
+      535,
+      124
+    ]
+  },
+  {
+    "file": "workout_session/workout_progress_bar.png",
+    "box": [
+      1405,
+      335,
+      1940,
+      370
+    ],
+    "size": [
+      535,
+      35
+    ]
+  },
+  {
+    "file": "workout_session/workout_exercise_card.png",
+    "box": [
+      1405,
+      380,
+      1940,
+      553
+    ],
+    "size": [
+      535,
+      173
+    ]
+  },
+  {
+    "file": "workout_session/workout_squat_illustration.png",
+    "box": [
+      1455,
+      398,
+      1560,
+      535
+    ],
+    "size": [
+      105,
+      137
+    ]
+  },
+  {
+    "file": "workout_session/workout_weight_stepper.png",
+    "box": [
+      1405,
+      575,
+      1940,
+      758
+    ],
+    "size": [
+      535,
+      183
+    ]
+  },
+  {
+    "file": "workout_session/workout_reps_stepper.png",
+    "box": [
+      1405,
+      758,
+      1940,
+      940
+    ],
+    "size": [
+      535,
+      182
+    ]
+  },
+  {
+    "file": "workout_session/workout_complete_checkbox.png",
+    "box": [
+      1405,
+      960,
+      1600,
+      1017
+    ],
+    "size": [
+      195,
+      57
+    ]
+  },
+  {
+    "file": "workout_session/workout_change_stop_buttons.png",
+    "box": [
+      1405,
+      1035,
+      1940,
+      1118
+    ],
+    "size": [
+      535,
+      83
+    ]
+  },
+  {
+    "file": "workout_session/workout_next_button.png",
+    "box": [
+      1405,
+      1145,
+      1940,
+      1235
+    ],
+    "size": [
+      535,
+      90
+    ]
+  }
+]

@@ -1,0 +1,105 @@
+[
+  {
+    "evidence_id": "theme_caffeine",
+    "title": "カフェインとパフォーマンス（テーマ要約）",
+    "authors": [],
+    "year": null,
+    "doi": "",
+    "license": "self_authored_secondary_summary",
+    "source_url": "",
+    "short_summary_ja": "持久系は5mg/kgで5%向上。レジスタンスでは1RM軽微改善・スプリント低下軽減。摂取は運動60分前。"
+  },
+  {
+    "evidence_id": "theme_hypertrophy_mechanisms",
+    "title": "筋肥大のメカニズムと負荷・ボリューム設計（テーマ要約）",
+    "authors": [],
+    "year": null,
+    "doi": "",
+    "license": "self_authored_secondary_summary",
+    "source_url": "",
+    "short_summary_ja": "筋肥大は機械的張力が主要因。週ボリュームが用量反応的に効く。低負荷でも追い込めば肥大は同等。系統ホルモンは予測因子にならない。"
+  },
+  {
+    "evidence_id": "jager_2017_issn_protein",
+    "title": "International Society of Sports Nutrition Position Stand: protein and exercise",
+    "authors": [
+      "Jäger R.",
+      "Kerksick C.M.",
+      "Campbell B.I.",
+      "Cribb P.J.",
+      "Wells S.D.",
+      "Skwiat T.M.",
+      "Purpura M.",
+      "Ziegenfuss T.N.",
+      "Ferrando A.A.",
+      "Arent S.M.",
+      "Smith-Ryan A.E.",
+      "Stout J.R.",
+      "Arciero P.J.",
+      "Ormsbee M.J.",
+      "Taylor L.W.",
+      "Wilborn C.D.",
+      "Kalman D.S.",
+      "Kreider R.B.",
+      "Willoughby D.S.",
+      "Hoffman J.R.",
+      "Krzykowski J.L.",
+      "Antonio J."
+    ],
+    "year": 2017,
+    "doi": "10.1186/s12970-017-0177-8",
+    "license": "CC-BY-4.0",
+    "source_url": "https://jissn.biomedcentral.com/articles/10.1186/s12970-017-0177-8",
+    "short_summary_ja": "運動者の総タンパク質は1.4〜2.0g/kg/日、各食0.25〜0.4g/kgが目安。ISSN公式ポジション。"
+  },
+  {
+    "evidence_id": "theme_fat_testosterone",
+    "title": "脂質摂取とテストステロン（テーマ要約）",
+    "authors": [],
+    "year": null,
+    "doi": "",
+    "license": "self_authored_secondary_summary",
+    "source_url": "",
+    "short_summary_ja": "低脂肪食は男性のテストステロンを10-15%低下させる。極端な低脂肪は推奨せず、総脂質エネルギー比20-35%が安全。"
+  },
+  {
+    "evidence_id": "theme_protein_nutrition",
+    "title": "タンパク質摂取量・分配・ソース（テーマ要約）",
+    "authors": [],
+    "year": null,
+    "doi": "",
+    "license": "self_authored_secondary_summary",
+    "source_url": "",
+    "short_summary_ja": "総量1.4-2.0g/kg/日、各食0.4g/kg、3-4時間ごと分配。全身トレでは40gで20gより優位。卵黄あり・乳製品も有効。"
+  },
+  {
+    "evidence_id": "theme_equipment",
+    "title": "フリーウェイト vs マシン（テーマ要約）",
+    "authors": [],
+    "year": null,
+    "doi": "",
+    "license": "self_authored_secondary_summary",
+    "source_url": "",
+    "short_summary_ja": "未経験者ではフリーウェイトが筋力・バランス向上で優位。経験者では同等。初心者にはまずフォーム習熟、無理せずマシン併用も可。"
+  },
+  {
+    "evidence_id": "theme_rest_intervals",
+    "title": "セット間休息時間（テーマ要約）",
+    "authors": [],
+    "year": null,
+    "doi": "",
+    "license": "self_authored_secondary_summary",
+    "source_url": "",
+    "short_summary_ja": "短休息ホルモン狙い説は否定された。コンパウンドは2-3分以上、アイソレーションは1-2分が肥大・筋力ともに最適。"
+  },
+  {
+    "evidence_id": "theme_training_meta_analysis",
+    "title": "訓練変数（負荷・セット数・頻度）の最適化（テーマ要約）",
+    "authors": [],
+    "year": null,
+    "doi": "",
+    "license": "self_authored_secondary_summary",
+    "source_url": "",
+    "short_summary_ja": "高負荷は筋力で優位、肥大は負荷非依存。セット数追加で肥大用量反応、頻度は週2-3で十分。"
+  }
+]

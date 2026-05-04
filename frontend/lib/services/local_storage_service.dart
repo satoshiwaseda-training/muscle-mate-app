@@ -6,15 +6,21 @@ import '../models/workout_record.dart';
 class LocalStorageService {
   static const _key         = 'workout_records';
   static const _settingsKey  = 'user_settings';
+  static const _recoveryBoostKey = 'recovery_boost_state';
+  static const _plannedSessionKey = 'planned_session_state';
+  static const _onboardingCompleteKey = 'onboarding_complete';
 
   // ── 設定 ────────────────────────────────────────────────────────────────
 
   static Map<String, dynamic> defaultSettings() => {
-        'level': 'intermediate',
+        'level': 'beginner',
+        'preferred_goal': 'general_fitness',
+        'session_duration_minutes': 30,
+        'comfort_flags': <String>[],
         'bench_press_max': null,
         'squat_max': null,
         'deadlift_max': null,
-        'equipment': ['barbell', 'dumbbell', 'machine', 'bodyweight', 'cable'],
+        'equipment': ['bodyweight', 'dumbbell', 'machine'],
       };
 
   static Future<Map<String, dynamic>> loadSettings() async {
@@ -33,6 +39,16 @@ class LocalStorageService {
   static Future<void> saveSettings(Map<String, dynamic> settings) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_settingsKey, jsonEncode(settings));
+  }
+
+  static Future<bool> isOnboardingComplete() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_onboardingCompleteKey) ?? false;
+  }
+
+  static Future<void> markOnboardingComplete() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_onboardingCompleteKey, true);
   }
 
   static Future<List<WorkoutRecord>> loadAll() async {
@@ -84,5 +100,34 @@ class LocalStorageService {
     final raw = prefs.getString(_cachedPlanKey);
     if (raw == null) return null;
     return jsonDecode(raw) as Map<String, dynamic>;
+  }
+
+  static Future<void> saveRecoveryBoost(Map<String, dynamic> boost) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_recoveryBoostKey, jsonEncode(boost));
+  }
+
+  static Future<Map<String, dynamic>?> loadRecoveryBoost() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_recoveryBoostKey);
+    if (raw == null) return null;
+    return jsonDecode(raw) as Map<String, dynamic>;
+  }
+
+  static Future<void> savePlannedSession(Map<String, dynamic> session) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_plannedSessionKey, jsonEncode(session));
+  }
+
+  static Future<Map<String, dynamic>?> loadPlannedSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_plannedSessionKey);
+    if (raw == null) return null;
+    return jsonDecode(raw) as Map<String, dynamic>;
+  }
+
+  static Future<void> clearPlannedSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_plannedSessionKey);
   }
 }

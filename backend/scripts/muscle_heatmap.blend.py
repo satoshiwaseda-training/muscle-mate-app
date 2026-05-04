@@ -1,644 +1,637 @@
 """
-Blender ヘッドレス・マッスルヒートマップレンダラー
-─────────────────────────────────────────────────────────────
-【実行方法】
-  blender --background --python muscle_heatmap.blend.py -- /path/to/input.json
+muscle_heatmap.blend.py  —  解剖学グレード 筋肉ヒートマップレンダラー v5.0
+───────────────────────────────────────────────────────────────────────────
+実行: blender --background --python muscle_heatmap.blend.py -- input.json
 
-【入力 JSON 形式】
-  {
-    "intensities": {
-      "chest": 0.85, "back": 0.60, "shoulders": 0.45,
-      "biceps": 0.30, "triceps": 0.55, "quads": 0.70,
-      "hamstrings": 0.65, "glutes": 0.75, "calves": 0.40, "core": 0.50
-    },
-    "output_path": "/path/to/output.png",
-    "resolution_x": 512,
-    "resolution_y": 1024
-  }
-
-【ライティング設定】
-  Gemini に最適設定を相談した結果:
-  - レンダラー: EEVEE (高速、モバイル表示に十分)
-  - Key Light:  右上45° / Energy 5.0 / 暖色 (5500K)
-  - Fill Light: 左側  / Energy 1.5 / 冷色 (7000K)
-  - Rim Light:  背後  / Energy 3.0 / 白 (ハードエッジ強調)
-  - HDRI背景:   ダークスタジオ (#0D0D0D)
-  これにより筋肉の立体感と「パンプアップ感」が最大化される。
+v5.0 変更点（v4.0からの改善）:
+  [CRITICAL] Cycles + OIDN デノイザー  → 物理的に正確なSSS・バンプ描画
+  [CRITICAL] 筋線維テクスチャをBase Colorに直接注入（照明非依存の視認性）
+  [FIX]      SSS Radius を現実的な値(0.06m)に修正（v4の1.0mは過大）
+  [FIX]      Anisotropic シェーダー廃止（効果なしと判定）
+  [NEW]      Emission 1.5倍強化（マグマ内部発光感の向上）
+  [NEW]      グレイジング照明2灯追加（バンプ縞の鮮明化）
 """
+
 import bpy
-import json
 import sys
+import json
 import math
-from mathutils import Vector, Color
+import os
+from mathutils import Vector, Euler
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 0. ARGS / CONFIG
+# ─────────────────────────────────────────────────────────────────────────────
 
-# ── 引数解析 ───────────────────────────────────────────────────────────────
+argv = sys.argv
+try:
+    idx   = argv.index("--") + 1
+    _path = argv[idx]
+    with open(_path, "r", encoding="utf-8") as f:
+        _data = json.load(f)
+    INTENSITIES   = _data.get("intensities", {})
+    OUTPUT_PATH   = _data.get("output_path", "muscle_anatomy.png")
+    RES_X         = _data.get("resolution_x", 1024)
+    RES_Y         = _data.get("resolution_y", 2048)
+    RPARAMS       = _data.get("render_params", {})
+except (ValueError, IndexError, FileNotFoundError):
+    INTENSITIES = {
+        "chest": 0.99, "back": 0.82, "shoulders": 0.75,
+        "biceps": 0.42, "triceps": 0.58, "quads": 1.00,
+        "hamstrings": 0.62, "glutes": 0.88, "calves": 0.48, "core": 0.72,
+    }
+    OUTPUT_PATH = "muscle_anatomy.png"
+    RES_X, RES_Y = 768, 1536
+    RPARAMS = {}
 
-def _load_args() -> dict:
-    argv = sys.argv
-    try:
-        sep = argv.index("--")
-        json_path = argv[sep + 1]
-    except (ValueError, IndexError):
-        raise SystemExit("Usage: blender --background --python script.py -- input.json")
-    with open(json_path, encoding="utf-8") as f:
-        return json.load(f)
+def _G(key): return INTENSITIES.get(key, 0.3)
 
+# Gemini 推奨パラメータ（デフォルト + 上書き）
+_m  = RPARAMS.get("material", {})
+_e  = RPARAMS.get("eevee",    {})
+_l  = RPARAMS.get("lighting", {})
 
-# ── カラーマッピング ────────────────────────────────────────────────────────
-
-def _intensity_to_color(intensity: float) -> tuple[float, float, float]:
-    """
-    強度 0.0〜1.0 を Blender Linear color space の色に変換:
-      0.0  → 暗い青黒
-      0.4  → 深いブルー→オレンジへ遷移
-      0.7  → 鮮やかなオレンジ
-      0.9  → 真っ赤
-      1.0  → ホワイトホット（オーバーブライト）
-    """
-    if intensity < 0.4:
-        t = intensity / 0.4
-        r = 0.01 + 0.09 * t
-        g = 0.01 + 0.05 * t
-        b = 0.05 + 0.20 * t
-    elif intensity < 0.7:
-        t = (intensity - 0.4) / 0.3
-        r = 0.10 + 0.90 * t   # → 1.0
-        g = 0.06 + 0.21 * t   # → 0.27
-        b = 0.25 - 0.24 * t   # → 0.01
-    elif intensity < 0.9:
-        t = (intensity - 0.7) / 0.2
-        r = 1.0
-        g = 0.27 - 0.27 * t   # → 0
-        b = 0.01
-    else:
-        t = (intensity - 0.9) / 0.1
-        r = 1.0
-        g = 0.0 + 1.0 * t
-        b = 0.0 + 1.0 * t
-
-    # Emission オーバーブライトでブルームが乗る
-    bloom = 1.5 + intensity * 3.5
-    return (r * bloom, g * bloom, b * bloom)
-
-
-def _emission_strength(intensity: float) -> float:
-    """強度 0.0〜1.0 を Blender Emission Strength にマッピング"""
-    return 0.2 + intensity * 4.8  # 0.2〜5.0
-
-
-# ── 筋肉部位の頂点グループ → メッシュゾーン定義 ────────────────────────────
-
-# 各筋肉のBounding Box (x_min, x_max, y_min, y_max, z_min, z_max) in local space
-# 単純な「カプセル体」で筋肉部位を表現
-# 実際のBlenderワークフローでは weight painting を使うが、
-# ヘッドレスではプロシージャルに分割する
-
-_MUSCLE_ZONES = {
-    # name: (center_x, center_y, center_z, scale_x, scale_y, scale_z)
-    # 新ボディ座標系に合わせた配置
-    "chest":       ( 0.00,  0.16,  0.44, 0.20, 0.07, 0.18),  # 胸郭前面
-    "back":        ( 0.00, -0.16,  0.38, 0.20, 0.07, 0.22),  # 背面
-    "shoulders_l": (-0.28,  0.00,  0.56, 0.09, 0.09, 0.09),
-    "shoulders_r": ( 0.28,  0.00,  0.56, 0.09, 0.09, 0.09),
-    "biceps_l":    (-0.31,  0.06,  0.38, 0.07, 0.07, 0.16),
-    "biceps_r":    ( 0.31,  0.06,  0.38, 0.07, 0.07, 0.16),
-    "triceps_l":   (-0.31, -0.06,  0.38, 0.07, 0.07, 0.16),
-    "triceps_r":   ( 0.31, -0.06,  0.38, 0.07, 0.07, 0.16),
-    "core":        ( 0.00,  0.13,  0.18, 0.16, 0.07, 0.18),  # 腹直筋
-    "quads_l":     (-0.11,  0.09, -0.25, 0.10, 0.10, 0.24),  # 大腿前面
-    "quads_r":     ( 0.11,  0.09, -0.25, 0.10, 0.10, 0.24),
-    "hamstrings_l":(-0.11, -0.09, -0.25, 0.10, 0.10, 0.24),  # 大腿後面
-    "hamstrings_r":( 0.11, -0.09, -0.25, 0.10, 0.10, 0.24),
-    "glutes":      ( 0.00, -0.16,  0.00, 0.20, 0.10, 0.13),  # 臀部
-    "calves_l":    (-0.10, -0.05, -0.68, 0.07, 0.07, 0.17),
-    "calves_r":    ( 0.10, -0.05, -0.68, 0.07, 0.07, 0.17),
-}
-
-# 筋肉グループ → ゾーン名のマッピング（対称展開）
-_GROUP_TO_ZONES = {
-    "chest":      ["chest"],
-    "back":       ["back"],
-    "shoulders":  ["shoulders_l", "shoulders_r"],
-    "biceps":     ["biceps_l", "biceps_r"],
-    "triceps":    ["triceps_l", "triceps_r"],
-    "core":       ["core"],
-    "quads":      ["quads_l", "quads_r"],
-    "hamstrings": ["hamstrings_l", "hamstrings_r"],
-    "glutes":     ["glutes"],
-    "calves":     ["calves_l", "calves_r"],
+P = {
+    "sss_base":      _m.get("sss_base",          0.20),
+    "sss_mult":      _m.get("sss_multiplier",     0.22),
+    "roughness":     _m.get("roughness",          0.28),
+    "specular":      _m.get("specular",           0.60),
+    # v5.4: bump_strengthのガードを下げ（Gemini Visionの0.2提案を受け入れ可能に）
+    "bump_strength": max(0.18, _m.get("bump_strength", 0.50)),  # 最低0.18保証
+    "fiber_scale_c": 7.0,    # 幅広縞（v5.1で texture 8/10 実績）
+    "fiber_scale_b": 22.0,   # Bump 用（細かい表面凹凸）
+    "fiber_distort": _m.get("fiber_distortion",   2.2),
+    "em_threshold":  _m.get("emission_threshold", 0.25),
+    "em_strength":   max(7.0, _m.get("emission_strength", 9.0)),  # 最低7.0保証
+    "cycles_samples":96,
+    # v5.4: v5.0照明設定に戻す（lighting 8/10 実績） + fill を適度に保つ（テクスチャ視認性）
+    "key_energy":    _l.get("key_energy",         520.0),
+    "key_color":     _l.get("key_color",          [1.0, 0.88, 0.68]),
+    "fill_energy":   _l.get("fill_energy",        65.0),   # v5.0実績値（70近辺）
+    "fill_color":    _l.get("fill_color",         [0.62, 0.78, 1.0]),
+    "rim_R_energy":  _l.get("rim_R_energy",       2000.0), # v5.0より少し強め
+    "rim_L_energy":  _l.get("rim_L_energy",       1200.0),
+    "top_energy":    _l.get("top_energy",         240.0),
+    "graze_energy":  160.0,   # 控えめ（v5.0のない状態より少し追加）
 }
 
 
-# ── シーン構築 ──────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. SCENE CLEAR
+# ─────────────────────────────────────────────────────────────────────────────
 
 def clear_scene():
     bpy.ops.object.select_all(action='SELECT')
-    bpy.ops.object.delete()
-    for block in bpy.data.meshes:
-        bpy.data.meshes.remove(block)
-    for block in bpy.data.materials:
-        bpy.data.materials.remove(block)
+    bpy.ops.object.delete(use_global=False)
+    for D in [bpy.data.meshes, bpy.data.materials,
+              bpy.data.lights, bpy.data.cameras]:
+        for b in list(D):
+            D.remove(b)
 
 
-def _add_capsule(name: str, loc: tuple, scale: tuple, rot=(0,0,0)) -> bpy.types.Object:
-    """UV球2個+円柱でカプセルを作成してメッシュ変換"""
-    bpy.ops.mesh.primitive_cylinder_add(
-        vertices=16, radius=1.0, depth=1.0, location=loc
-    )
-    obj = bpy.context.active_object
-    obj.name = name
-    obj.scale = scale
-    if any(rot):
-        obj.rotation_euler = rot
-    bpy.ops.object.shade_smooth()
-    return obj
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. MATERIAL SYSTEM
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _try(inputs, name, val):
+    if name in inputs:
+        inputs[name].default_value = val
+        return True
+    return False
 
 
-def create_body_base() -> bpy.types.Object:
+def _intensity_to_color(v):
+    """強度 0→1 を色に変換（紺→深赤→オレンジ→白熱）"""
+    if v < 0.25:
+        t = v / 0.25
+        return (0.02 + t * 0.08,  0.03 + t * 0.04,  0.15 + t * 0.06)
+    elif v < 0.55:
+        t = (v - 0.25) / 0.30
+        return (0.10 + t * 0.52,  0.07 - t * 0.05,  0.21 - t * 0.18)
+    elif v < 0.80:
+        t = (v - 0.55) / 0.25
+        return (0.62 + t * 0.28,  0.02 + t * 0.20,  0.03)
+    else:
+        t = (v - 0.80) / 0.20
+        return (0.90 + t * 0.10,  0.22 + t * 0.73,  0.03 + t * 0.55)
+
+
+def make_muscle_mat(name, intensity, fiber_axis='Z'):
     """
-    プリミティブメッシュで明確な人体シルエットを構築する。
-    Metaball を廃棄して円柱+球の直接配置に変更。
-    比率はサトシさん (180cm, マッチョ体型) を参考にした。
+    v5.0 シェーダー:
+      - 筋線維縞模様をBase Colorに直接注入（照明非依存の視認性）
+      - Emission 1.5× 強化
+      - SSS Radius を現実的な物理値に修正
+      - Anisotropic 廃止（効果なし確認済み）
     """
-    parts = []
+    mat = bpy.data.materials.new(name=name)
+    mat.use_nodes = True
+    N = mat.node_tree.nodes
+    L = mat.node_tree.links
+    N.clear()
 
-    # ── 頭 ──────────────────────────────────────────────────
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.12, location=(0, 0, 0.88))
-    head = bpy.context.active_object
-    head.name = "B_Head"
-    head.scale = (1.0, 0.95, 1.1)
-    bpy.ops.object.shade_smooth()
-    parts.append(head)
+    r, g, b = _intensity_to_color(intensity)
 
-    # ── 首 ──────────────────────────────────────────────────
-    parts.append(_add_capsule("B_Neck", (0, 0, 0.72), (0.055, 0.055, 0.09)))
+    # ── ノード配置 ────────────────────────────────────────────────────────────
+    out   = N.new('ShaderNodeOutputMaterial'); out.location   = (1300, 0)
+    mix   = N.new('ShaderNodeMixShader');      mix.location   = (1050, 0)
+    bsdf  = N.new('ShaderNodeBsdfPrincipled'); bsdf.location  = (750,  200)
+    emiss = N.new('ShaderNodeEmission');       emiss.location = (750, -220)
+    tc    = N.new('ShaderNodeTexCoord');       tc.location    = (-900, 0)
 
-    # ── 胸郭（上体）─────────────────────────────────────────
-    parts.append(_add_capsule("B_Chest", (0, 0, 0.44), (0.20, 0.14, 0.24)))
+    # ── [KEY FIX] 筋線維テクスチャ → Base Color（照明依存ゼロ） ─────────────
+    # 長軸に沿って線維が走る → 縞方向は長軸と直交するX/Z方向に設定
+    fiber_dir = 'X' if fiber_axis in ('Z', 'Y') else 'Z'
 
-    # ── 腹部 ────────────────────────────────────────────────
-    parts.append(_add_capsule("B_Abdomen", (0, 0, 0.20), (0.16, 0.12, 0.18)))
+    wav_c = N.new('ShaderNodeTexWave');  wav_c.location = (-720, 280)
+    wav_c.wave_type       = 'BANDS'
+    wav_c.bands_direction = fiber_dir
+    wav_c.inputs['Scale'].default_value            = P["fiber_scale_c"]  # 7: 幅広縞（視認性重視）
+    wav_c.inputs['Distortion'].default_value       = P["fiber_distort"]  # 2.2: 生物的不規則性
+    wav_c.inputs['Detail'].default_value           = 5.0
+    wav_c.inputs['Detail Scale'].default_value     = 3.0
+    wav_c.inputs['Detail Roughness'].default_value = 0.75
+    L.new(tc.outputs['Object'], wav_c.inputs['Vector'])
 
-    # ── 骨盤 ────────────────────────────────────────────────
-    parts.append(_add_capsule("B_Pelvis", (0, 0, 0.01), (0.18, 0.13, 0.13)))
+    # Noise テクスチャ（25%混合で生物的な不規則性を追加）
+    noise_c = N.new('ShaderNodeTexNoise');  noise_c.location = (-720, 60)
+    noise_c.inputs['Scale'].default_value      = 3.5
+    noise_c.inputs['Detail'].default_value     = 4.0
+    noise_c.inputs['Roughness'].default_value  = 0.65
+    noise_c.inputs['Distortion'].default_value = 0.2
+    L.new(tc.outputs['Object'], noise_c.inputs['Vector'])
 
-    # ── 肩（左右）──────────────────────────────────────────
-    for x in [-0.26, 0.26]:
-        parts.append(_add_capsule(f"B_Shoulder_{'L' if x<0 else 'R'}",
-                                  (x, 0, 0.56), (0.07, 0.07, 0.07)))
+    # Wave + Noise を 75:25 で混合（生物的テクスチャ）
+    mix_wav = N.new('ShaderNodeMixRGB');  mix_wav.location = (-490, 200)
+    mix_wav.blend_type = 'MIX'
+    mix_wav.inputs[0].default_value = 0.25   # 25% Noise
+    L.new(wav_c.outputs['Color'],   mix_wav.inputs[1])
+    L.new(noise_c.outputs['Color'], mix_wav.inputs[2])
 
-    # ── 上腕（左右）────────────────────────────────────────
-    for x in [-0.30, 0.30]:
-        parts.append(_add_capsule(f"B_UpperArm_{'L' if x<0 else 'R'}",
-                                  (x*1.05, 0, 0.38), (0.06, 0.06, 0.18)))
+    # Color Ramp: 暗い線維溝 ←→ 明るい線維束（コントラスト比 約5:1、LINEAR補間）
+    ramp = N.new('ShaderNodeValToRGB'); ramp.location = (-260, 200)
+    ramp.color_ramp.interpolation = 'LINEAR'   # EASEより鮮明なエッジ
+    # 暗い溝（位置0.15）
+    ramp.color_ramp.elements[0].position = 0.15
+    ramp.color_ramp.elements[0].color    = (
+        max(0.001, r * 0.32),
+        max(0.001, g * 0.32),
+        max(0.001, b * 0.36),
+        1.0)
+    # 明るい線維峰（位置0.85）
+    ramp.color_ramp.elements[1].position = 0.85
+    ramp.color_ramp.elements[1].color    = (
+        min(1.0, r * 1.72),
+        min(1.0, g * 1.55),
+        min(1.0, b * 1.42),
+        1.0)
+    L.new(mix_wav.outputs['Color'], ramp.inputs['Fac'])
 
-    # ── 前腕（左右）────────────────────────────────────────
-    for x in [-0.30, 0.30]:
-        parts.append(_add_capsule(f"B_ForeArm_{'L' if x<0 else 'R'}",
-                                  (x*1.06, 0, 0.16), (0.05, 0.05, 0.15)))
+    # Base Color = 線維縞（常に視認可能）
+    L.new(ramp.outputs['Color'], bsdf.inputs['Base Color'])
 
-    # ── 大腿（左右）────────────────────────────────────────
-    for x in [-0.11, 0.11]:
-        parts.append(_add_capsule(f"B_Thigh_{'L' if x<0 else 'R'}",
-                                  (x, 0, -0.25), (0.10, 0.10, 0.25)))
+    # ── Principled BSDF パラメータ ────────────────────────────────────────────
+    _try(bsdf.inputs, 'Roughness',          P["roughness"])
+    _try(bsdf.inputs, 'Specular IOR Level', P["specular"])
+    _try(bsdf.inputs, 'Specular',           P["specular"])
+    _try(bsdf.inputs, 'Coat Weight',        0.15)
+    _try(bsdf.inputs, 'Coat Roughness',     0.18)
+    # Sheen: v5.4では廃止（効果が不安定なため）
 
-    # ── 膝（左右）──────────────────────────────────────────
-    for x in [-0.11, 0.11]:
-        bpy.ops.mesh.primitive_uv_sphere_add(radius=0.08, location=(x, 0, -0.50))
-        knee = bpy.context.active_object
-        knee.name = f"B_Knee_{'L' if x<0 else 'R'}"
-        bpy.ops.object.shade_smooth()
-        parts.append(knee)
+    # SSS（物理的に正確な皮膚/筋肉の光散乱距離に修正）
+    sss = min(0.45, P["sss_base"] + intensity * P["sss_mult"])
+    _try(bsdf.inputs, 'Subsurface Weight', sss)
+    _try(bsdf.inputs, 'Subsurface',        sss)
+    if 'Subsurface Color' in bsdf.inputs:
+        bsdf.inputs['Subsurface Color'].default_value = (0.90, 0.15, 0.05, 1.0)
+    if 'Subsurface Radius' in bsdf.inputs:
+        # Blender 1unit=1m スケールで約6cm(R), 2.2cm(G), 0.8cm(B) の散乱距離
+        # v4の(1.0, 0.35, 0.08)は100cmで過大 → リアルな皮膚SSS値に修正
+        bsdf.inputs['Subsurface Radius'].default_value = (0.060, 0.022, 0.008)
+    if 'Subsurface Scale' in bsdf.inputs:
+        bsdf.inputs['Subsurface Scale'].default_value = 0.05
 
-    # ── 下腿（左右）────────────────────────────────────────
-    for x in [-0.10, 0.10]:
-        parts.append(_add_capsule(f"B_Shin_{'L' if x<0 else 'R'}",
-                                  (x, 0, -0.70), (0.07, 0.07, 0.19)))
+    # ── Emission（マグマ内部発光）────────────────────────────────────────────
+    em_str = max(0.0, (intensity - P["em_threshold"]) * P["em_strength"] * 1.5)
+    emiss.inputs['Color'].default_value    = (
+        min(1.0, r * 2.6 + 0.3),
+        min(1.0, g * 1.5 + 0.05),
+        min(1.0, b * 0.12),
+        1.0)
+    emiss.inputs['Strength'].default_value = em_str
+    mix.inputs[0].default_value = min(0.65, intensity * 0.58)
 
-    # 全パーツを Join
-    bpy.ops.object.select_all(action='DESELECT')
-    for p in parts:
-        p.select_set(True)
-    bpy.context.view_layer.objects.active = parts[0]
-    bpy.ops.object.join()
-    body = bpy.context.active_object
-    body.name = "HumanBody"
-    return body
+    # ── Bump Map（表面微細凹凸：色縞と別スケールで立体感を加算） ─────────────
+    wav_b = N.new('ShaderNodeTexWave');  wav_b.location = (-640, -140)
+    wav_b.wave_type       = 'BANDS'
+    wav_b.bands_direction = fiber_dir
+    wav_b.inputs['Scale'].default_value            = P["fiber_scale_b"]  # 26: 細かいバンプ
+    wav_b.inputs['Distortion'].default_value       = 1.8
+    wav_b.inputs['Detail'].default_value           = 5.0
+    wav_b.inputs['Detail Scale'].default_value     = 2.0
+    wav_b.inputs['Detail Roughness'].default_value = 0.55
+    L.new(tc.outputs['Object'], wav_b.inputs['Vector'])
 
+    bmp = N.new('ShaderNodeBump'); bmp.location = (350, -80)
+    bmp.inputs['Strength'].default_value = P["bump_strength"]
+    bmp.inputs['Distance'].default_value = 0.012
+    L.new(wav_b.outputs['Color'], bmp.inputs['Height'])
+    L.new(bmp.outputs['Normal'],  bsdf.inputs['Normal'])
 
-def _try_set(node_inputs, name: str, value):
-    """入力ソケットに安全に値をセット（Blenderバージョン差異を吸収）"""
-    try:
-        node_inputs[name].default_value = value
-    except (KeyError, TypeError):
-        pass
+    # ── Shader Connections ────────────────────────────────────────────────────
+    L.new(bsdf.outputs[0],  mix.inputs[1])
+    L.new(emiss.outputs[0], mix.inputs[2])
+    L.new(mix.outputs[0],   out.inputs[0])
 
-
-def _add_fiber_bump(nodes, links, bsdf, intensity: float):
-    """
-    筋線維のバンプマップをプロシージャルに生成する。
-    Wave Texture（縦方向ストランド）+ Noise（不規則性）を合成して
-    筋肉の「セパレーション感」を演出する。
-    """
-    tex_coord = nodes.new('ShaderNodeTexCoord')
-    tex_coord.location = (-900, -200)
-
-    # 筋線維の方向性（Z軸 = 筋肉の長軸方向）
-    wave = nodes.new('ShaderNodeTexWave')
-    wave.location = (-700, -100)
-    wave.wave_type = 'BANDS'
-    wave.bands_direction = 'Z'
-    wave.inputs["Scale"].default_value = 18.0 + intensity * 8.0
-    wave.inputs["Distortion"].default_value = 2.5
-    wave.inputs["Detail"].default_value = 10.0
-    wave.inputs["Detail Scale"].default_value = 3.0
-    wave.inputs["Detail Roughness"].default_value = 0.6
-
-    # 微細な不規則性
-    noise = nodes.new('ShaderNodeTexNoise')
-    noise.location = (-700, -300)
-    noise.inputs["Scale"].default_value = 40.0
-    noise.inputs["Detail"].default_value = 10.0
-    noise.inputs["Roughness"].default_value = 0.7
-    noise.inputs["Distortion"].default_value = 0.3
-
-    # Wave と Noise を MixRGB で合成
-    mix_rgb = nodes.new('ShaderNodeMixRGB')
-    mix_rgb.location = (-500, -200)
-    mix_rgb.blend_type = 'OVERLAY'
-    mix_rgb.inputs["Fac"].default_value = 0.4
-
-    # Bump ノード
-    bump = nodes.new('ShaderNodeBump')
-    bump.location = (-300, -200)
-    bump.inputs["Strength"].default_value = 0.6 + intensity * 0.4
-    bump.inputs["Distance"].default_value = 0.008
-
-    links.new(tex_coord.outputs["Object"], wave.inputs["Vector"])
-    links.new(tex_coord.outputs["Object"], noise.inputs["Vector"])
-    links.new(wave.outputs["Color"], mix_rgb.inputs["Color1"])
-    links.new(noise.outputs["Color"], mix_rgb.inputs["Color2"])
-    links.new(mix_rgb.outputs["Color"], bump.inputs["Height"])
-    links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
-
-
-def create_base_material() -> bpy.types.Material:
-    """
-    人体ベースマテリアル:
-    「深いネイビー・クリスタル質感」— 非活性部位の皮膚/筋肉を表現
-    Metallic + 低Roughness で半透明クリスタル感を演出
-    """
-    mat = bpy.data.materials.new(name="Body_Base")
-    try:
-        mat.use_nodes = True
-    except Exception:
-        pass
-    nodes = mat.node_tree.nodes
-    links = mat.node_tree.links
-    nodes.clear()
-
-    bsdf = nodes.new('ShaderNodeBsdfPrincipled')
-    bsdf.location = (0, 0)
-    # ネイビーブラック
-    bsdf.inputs["Base Color"].default_value = (0.012, 0.018, 0.06, 1.0)
-    _try_set(bsdf.inputs, "Metallic", 0.55)
-    _try_set(bsdf.inputs, "Roughness", 0.18)
-    _try_set(bsdf.inputs, "Specular IOR Level", 0.8)
-    # Transmission（半透明クリスタル感）
-    _try_set(bsdf.inputs, "Transmission Weight", 0.12)
-    _try_set(bsdf.inputs, "Coat Weight", 0.4)
-    _try_set(bsdf.inputs, "Coat Roughness", 0.05)
-
-    output = nodes.new('ShaderNodeOutputMaterial')
-    output.location = (250, 0)
-    links.new(bsdf.outputs["BSDF"], output.inputs["Surface"])
     return mat
 
 
-def create_muscle_object(
-    zone_key: str,
-    center: tuple,
-    size: tuple,
-    intensity: float,
-) -> bpy.types.Object:
-    """
-    筋肉部位オブジェクトを生成し、強度別の高品質マテリアルを適用する。
+def make_base_mat(name):
+    mat = bpy.data.materials.new(name=name)
+    mat.use_nodes = True
+    N = mat.node_tree.nodes
+    L = mat.node_tree.links
+    N.clear()
+    out  = N.new('ShaderNodeOutputMaterial')
+    bsdf = N.new('ShaderNodeBsdfPrincipled')
+    bsdf.inputs['Base Color'].default_value = (0.09, 0.07, 0.10, 1.0)
+    _try(bsdf.inputs, 'Roughness',         0.72)
+    _try(bsdf.inputs, 'Subsurface Weight', 0.04)
+    _try(bsdf.inputs, 'Subsurface',        0.04)
+    L.new(bsdf.outputs[0], out.inputs[0])
+    return mat
 
-    intensity > 0.6  → 「白熱するマグマ」: SSS + Emission + 筋線維バンプ
-    intensity 0.3-0.6 → 中間（オレンジ〜赤）
-    intensity < 0.3  → 「ネイビークリスタル」: Metallic + 弱い青発光
-    """
-    cx, cy, cz, sx, sy, sz = (*center, *size)
-    r_emit, g_emit, b_emit = _intensity_to_color(intensity)
-    e_strength = _emission_strength(intensity)
 
-    bpy.ops.mesh.primitive_uv_sphere_add(
-        segments=24, ring_count=14,
-        radius=1.0,
-        location=(cx, cy, cz),
-    )
-    obj = bpy.context.active_object
-    obj.name = f"Muscle_{zone_key}"
-    obj.scale = (sx, sy, sz)
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. GEOMETRY HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _subsurf(obj, lv=0, rv=1):
     bpy.ops.object.shade_smooth()
-
-    mat = bpy.data.materials.new(name=f"Mat_{zone_key}")
-    try:
-        mat.use_nodes = True
-    except Exception:
-        pass
-    nodes = mat.node_tree.nodes
-    links = mat.node_tree.links
-    nodes.clear()
-
-    bsdf = nodes.new('ShaderNodeBsdfPrincipled')
-    bsdf.location = (-200, 200)
-
-    if intensity >= 0.6:
-        # ── 高強度: マグマ・白熱 ──────────────────────────────
-        # Base Color (clamped sRGB)
-        bc_r = min(r_emit * 0.25, 1.0)
-        bc_g = min(g_emit * 0.25, 1.0)
-        bc_b = min(b_emit * 0.25, 1.0)
-        bsdf.inputs["Base Color"].default_value = (bc_r, bc_g, bc_b, 1.0)
-        _try_set(bsdf.inputs, "Roughness", 0.30)
-        _try_set(bsdf.inputs, "Metallic", 0.0)
-        # SSS（皮下散乱: 内部から熱が滲む）
-        sss_strength = (intensity - 0.6) / 0.4 * 0.5  # 0.0〜0.5
-        _try_set(bsdf.inputs, "Subsurface Weight", sss_strength)
-        _try_set(bsdf.inputs, "Subsurface", sss_strength)  # 旧バージョン対応
-        _try_set(bsdf.inputs, "Subsurface Radius",
-                 (min(r_emit*0.5, 1.0), min(g_emit*0.3, 1.0), min(b_emit*0.1, 1.0)))
-        _try_set(bsdf.inputs, "Subsurface Color",
-                 (min(r_emit, 1.0), min(g_emit * 0.5, 1.0), 0.0, 1.0))
-        # コート（筋肉の湿った表面の光沢）
-        _try_set(bsdf.inputs, "Coat Weight", 0.6)
-        _try_set(bsdf.inputs, "Coat Roughness", 0.1)
-        # 筋線維バンプ
-        _add_fiber_bump(nodes, links, bsdf, intensity)
-
-    elif intensity >= 0.3:
-        # ── 中強度: 暖色（オレンジ〜赤）────────────────────────
-        bc_r = min(r_emit * 0.20, 1.0)
-        bc_g = min(g_emit * 0.20, 1.0)
-        bc_b = min(b_emit * 0.20, 1.0)
-        bsdf.inputs["Base Color"].default_value = (bc_r, bc_g, bc_b, 1.0)
-        _try_set(bsdf.inputs, "Roughness", 0.40)
-        _try_set(bsdf.inputs, "Metallic", 0.05)
-        _try_set(bsdf.inputs, "Subsurface Weight", 0.15)
-        _try_set(bsdf.inputs, "Subsurface", 0.15)
-        _add_fiber_bump(nodes, links, bsdf, intensity)
-
-    else:
-        # ── 低強度: ネイビークリスタル ───────────────────────
-        bsdf.inputs["Base Color"].default_value = (0.01, 0.02, 0.12, 1.0)
-        _try_set(bsdf.inputs, "Metallic", 0.65)
-        _try_set(bsdf.inputs, "Roughness", 0.08)
-        _try_set(bsdf.inputs, "Coat Weight", 0.8)
-        _try_set(bsdf.inputs, "Coat Roughness", 0.02)
-        _try_set(bsdf.inputs, "Transmission Weight", 0.2)
-
-    # Emission（全強度で適用、低強度は弱い青）
-    emission = nodes.new('ShaderNodeEmission')
-    emission.location = (-200, -100)
-    if intensity < 0.3:
-        # 冷たい青の微発光
-        emission.inputs["Color"].default_value = (0.05, 0.10, 0.8, 1.0)
-        emission.inputs["Strength"].default_value = 0.3 + intensity * 0.5
-    else:
-        emission.inputs["Color"].default_value = (
-            min(r_emit, 15.0), min(g_emit, 15.0), min(b_emit, 15.0), 1.0
-        )
-        emission.inputs["Strength"].default_value = e_strength * 1.8
-
-    # MixShader (高強度ほどEmission比重大)
-    fac = 0.15 + min(intensity * 0.75, 0.80)
-    mix = nodes.new('ShaderNodeMixShader')
-    mix.location = (100, 100)
-    mix.inputs["Fac"].default_value = fac
-
-    output = nodes.new('ShaderNodeOutputMaterial')
-    output.location = (320, 100)
-
-    links.new(bsdf.outputs["BSDF"], mix.inputs[1])
-    links.new(emission.outputs["Emission"], mix.inputs[2])
-    links.new(mix.outputs["Shader"], output.inputs["Surface"])
-
-    obj.data.materials.append(mat)
+    m = obj.modifiers.new('Sub', 'SUBSURF')
+    m.levels = lv; m.render_levels = rv
     return obj
 
 
+def add_sphere(name, loc, scale, rot=(0, 0, 0), mat=None, seg=16, ring=10):
+    bpy.ops.mesh.primitive_uv_sphere_add(
+        radius=1.0, location=loc, segments=seg, ring_count=ring)
+    o = bpy.context.active_object
+    o.name = name; o.scale = scale
+    o.rotation_euler = Euler(rot, 'XYZ')
+    _subsurf(o, 1, 2)
+    if mat: o.data.materials.append(mat)
+    return o
+
+
+def add_cyl(name, loc, radius, depth, scale=(1, 1, 1), rot=(0, 0, 0), mat=None, seg=12):
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=radius, depth=depth, location=loc, vertices=seg)
+    o = bpy.context.active_object
+    o.name = name; o.scale = scale
+    o.rotation_euler = Euler(rot, 'XYZ')
+    _subsurf(o, 1, 2)
+    if mat: o.data.materials.append(mat)
+    return o
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. BASE BODY
+# ─────────────────────────────────────────────────────────────────────────────
+
+def create_body(bm):
+    add_cyl('torso',     (0, 0, 1.12),    0.26, 0.65, scale=(1.0, 0.72, 1.0), mat=bm, seg=24)
+    add_cyl('hips',      (0, 0, 0.875),   0.23, 0.14, scale=(1.1, 0.82, 1.0), mat=bm, seg=20)
+    add_sphere('chest_d',(0, 0.05, 1.28), (0.27, 0.09, 0.14), mat=bm)
+    add_sphere('head',   (0, 0, 1.72),    (1.0, 0.86, 1.0),   mat=bm, seg=16, ring=10)
+    add_cyl('neck',      (0, 0, 1.565),   0.056, 0.10, scale=(1.0, 0.84, 1.0), mat=bm, seg=10)
+
+    for sx, s in [(-1, 'L'), (1, 'R')]:
+        ax = sx * 0.38
+        add_cyl(f'ua_{s}',  (ax, -0.01, 1.22),       0.062, 0.36, mat=bm, seg=12)
+        add_sphere(f'elb_{s}', (ax*1.07, -0.03, 1.07), (0.075, 0.075, 0.075), mat=bm, seg=10)
+        add_cyl(f'la_{s}',  (ax*1.11, -0.055, 0.90), 0.048, 0.30, mat=bm, seg=10)
+        add_sphere(f'hnd_{s}', (ax*1.16, -0.08, 0.77), (0.05, 0.03, 0.06),    mat=bm, seg=8)
+
+    for sx, s in [(-1, 'L'), (1, 'R')]:
+        tx = sx * 0.12
+        add_cyl(f'thigh_{s}', (tx, 0.02, 0.67),   0.10,  0.43, scale=(1.0, 0.9, 1.0), mat=bm, seg=16)
+        add_sphere(f'kn_{s}', (tx, 0.02, 0.485),   (0.085, 0.075, 0.085), mat=bm, seg=12)
+        add_cyl(f'll_{s}',    (tx, -0.01, 0.275),  0.062, 0.36, scale=(1.0, 0.84, 1.0), mat=bm, seg=12)
+        add_sphere(f'ank_{s}',(tx, -0.02, 0.085),  (0.058, 0.048, 0.055), mat=bm, seg=8)
+        add_sphere(f'ft_{s}', (tx, 0.09, 0.055),   (0.06, 0.14, 0.04),    mat=bm, seg=8)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. INDIVIDUAL MUSCLE OBJECTS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def create_muscles():
+    _mc = {}
+    def M(key, fd='Z'):
+        k2 = f"{key}_{fd}"
+        if k2 not in _mc:
+            _mc[k2] = make_muscle_mat(f"mm_{key}", _G(key), fd)
+        return _mc[k2]
+
+    # ── 大胸筋（Pectoralis Major）水平線維 ──────────────────────────────
+    add_sphere('pec_st_L', (-0.105, 0.170, 1.210), (0.158, 0.072, 0.128), (0.05,0, 0.20), M('chest','X'))
+    add_sphere('pec_st_R', ( 0.105, 0.170, 1.210), (0.158, 0.072, 0.128), (0.05,0,-0.20), M('chest','X'))
+    add_sphere('pec_cl_L', (-0.082, 0.155, 1.335), (0.115, 0.058, 0.080), (0.08,0, 0.15), M('chest','X'))
+    add_sphere('pec_cl_R', ( 0.082, 0.155, 1.335), (0.115, 0.058, 0.080), (0.08,0,-0.15), M('chest','X'))
+    add_sphere('pec_ab_L', (-0.115, 0.155, 1.120), (0.100, 0.060, 0.065), (0.05,0, 0.25), M('chest','X'))
+    add_sphere('pec_ab_R', ( 0.115, 0.155, 1.120), (0.100, 0.060, 0.065), (0.05,0,-0.25), M('chest','X'))
+
+    # ── 三角筋（Deltoid）3頭 ────────────────────────────────────────────
+    add_sphere('dlt_a_L', (-0.285, 0.095, 1.385), (0.078, 0.075, 0.100), (0,0,0), M('shoulders','Y'))
+    add_sphere('dlt_a_R', ( 0.285, 0.095, 1.385), (0.078, 0.075, 0.100), (0,0,0), M('shoulders','Y'))
+    add_sphere('dlt_m_L', (-0.335, 0.000, 1.380), (0.068, 0.088, 0.106), (0,0,0), M('shoulders','Y'))
+    add_sphere('dlt_m_R', ( 0.335, 0.000, 1.380), (0.068, 0.088, 0.106), (0,0,0), M('shoulders','Y'))
+    add_sphere('dlt_p_L', (-0.305,-0.075, 1.370), (0.065, 0.065, 0.090), (0,0,0), M('shoulders','Y'))
+    add_sphere('dlt_p_R', ( 0.305,-0.075, 1.370), (0.065, 0.065, 0.090), (0,0,0), M('shoulders','Y'))
+
+    # ── 上腕二頭筋（Biceps）長頭 + 短頭 + 上腕筋 ─────────────────────
+    add_sphere('bi_lg_L', (-0.385, 0.065, 1.230), (0.064, 0.075, 0.152), (0,0,0), M('biceps','Z'))
+    add_sphere('bi_lg_R', ( 0.385, 0.065, 1.230), (0.064, 0.075, 0.152), (0,0,0), M('biceps','Z'))
+    add_sphere('bi_sh_L', (-0.362, 0.042, 1.185), (0.046, 0.058, 0.122), (0,0,0), M('biceps','Z'))
+    add_sphere('bi_sh_R', ( 0.362, 0.042, 1.185), (0.046, 0.058, 0.122), (0,0,0), M('biceps','Z'))
+    add_sphere('br_L',    (-0.372, 0.020, 1.095), (0.042, 0.048, 0.085), (0,0,0), M('biceps','Z'))
+    add_sphere('br_R',    ( 0.372, 0.020, 1.095), (0.042, 0.048, 0.085), (0,0,0), M('biceps','Z'))
+
+    # ── 上腕三頭筋（Triceps）3頭 ─────────────────────────────────────
+    add_sphere('tri_l_L',  (-0.395,-0.070, 1.225), (0.068, 0.062, 0.158), (0,0,0), M('triceps','Z'))
+    add_sphere('tri_l_R',  ( 0.395,-0.070, 1.225), (0.068, 0.062, 0.158), (0,0,0), M('triceps','Z'))
+    add_sphere('tri_lat_L',(-0.415,-0.040, 1.240), (0.055, 0.050, 0.128), (0,0,0), M('triceps','Z'))
+    add_sphere('tri_lat_R',( 0.415,-0.040, 1.240), (0.055, 0.050, 0.128), (0,0,0), M('triceps','Z'))
+    add_sphere('tri_med_L',(-0.380,-0.055, 1.150), (0.048, 0.042, 0.100), (0,0,0), M('triceps','Z'))
+    add_sphere('tri_med_R',( 0.380,-0.055, 1.150), (0.048, 0.042, 0.100), (0,0,0), M('triceps','Z'))
+
+    # ── 腹直筋（Rectus Abdominis）6パック ─────────────────────────────
+    for ri, z_ab in enumerate([1.155, 1.060, 0.970]):
+        sy = 0.046 - ri * 0.002
+        add_sphere(f'ra_{ri}_L', (-0.046, 0.192, z_ab), (0.064, 0.042, sy), (0,0,0), M('core','Z'))
+        add_sphere(f'ra_{ri}_R', ( 0.046, 0.192, z_ab), (0.064, 0.042, sy), (0,0,0), M('core','Z'))
+    add_sphere('ra_3_L', (-0.044, 0.185, 0.880), (0.060, 0.038, 0.042), (0,0,0), M('core','Z'))
+    add_sphere('ra_3_R', ( 0.044, 0.185, 0.880), (0.060, 0.038, 0.042), (0,0,0), M('core','Z'))
+
+    # ── 腹斜筋 + 前鋸筋 ──────────────────────────────────────────────
+    add_sphere('obl_L', (-0.195, 0.148, 1.010), (0.090, 0.042, 0.165), (0,0, 0.42), M('core','Y'))
+    add_sphere('obl_R', ( 0.195, 0.148, 1.010), (0.090, 0.042, 0.165), (0,0,-0.42), M('core','Y'))
+    add_sphere('ser_L', (-0.248, 0.108, 1.130), (0.036, 0.036, 0.125), (0,0, 0.18), M('core','Z'))
+    add_sphere('ser_R', ( 0.248, 0.108, 1.130), (0.036, 0.036, 0.125), (0,0,-0.18), M('core','Z'))
+
+    # ── 大腿四頭筋（Quadriceps）4頭 ───────────────────────────────────
+    add_sphere('rf_L', (-0.102, 0.108, 0.698), (0.064, 0.076, 0.200), (0,0,0), M('quads','Z'))
+    add_sphere('rf_R', ( 0.102, 0.108, 0.698), (0.064, 0.076, 0.200), (0,0,0), M('quads','Z'))
+    add_sphere('vl_L', (-0.182, 0.052, 0.688), (0.078, 0.062, 0.192), (0.05,0,0), M('quads','Z'))
+    add_sphere('vl_R', ( 0.182, 0.052, 0.688), (0.078, 0.062, 0.192), (0.05,0,0), M('quads','Z'))
+    add_sphere('vm_L', (-0.065, 0.092, 0.562), (0.060, 0.065, 0.095), (0,0,-0.15), M('quads','Z'))
+    add_sphere('vm_R', ( 0.065, 0.092, 0.562), (0.060, 0.065, 0.095), (0,0, 0.15), M('quads','Z'))
+    add_sphere('vi_L', (-0.112, 0.062, 0.698), (0.052, 0.056, 0.168), (0,0,0), M('quads','Z'))
+    add_sphere('vi_R', ( 0.112, 0.062, 0.698), (0.052, 0.056, 0.168), (0,0,0), M('quads','Z'))
+
+    # ── 腓腹筋 + ヒラメ筋（Calf）────────────────────────────────────
+    add_sphere('gc_mi_L', (-0.078,-0.048, 0.335), (0.054, 0.060, 0.134), (0,0,0), M('calves','Z'))
+    add_sphere('gc_mi_R', ( 0.078,-0.048, 0.335), (0.054, 0.060, 0.134), (0,0,0), M('calves','Z'))
+    add_sphere('gc_la_L', (-0.130,-0.055, 0.324), (0.048, 0.055, 0.120), (0,0,0), M('calves','Z'))
+    add_sphere('gc_la_R', ( 0.130,-0.055, 0.324), (0.048, 0.055, 0.120), (0,0,0), M('calves','Z'))
+    add_sphere('sol_L',   (-0.100,-0.038, 0.220), (0.064, 0.056, 0.098), (0,0,0), M('calves','Z'))
+    add_sphere('sol_R',   ( 0.100,-0.038, 0.220), (0.064, 0.056, 0.098), (0,0,0), M('calves','Z'))
+
+    # ── BACK MUSCLES ─────────────────────────────────────────────────
+    # 広背筋（V字テーパー）
+    add_sphere('lat_L', (-0.220,-0.122, 1.085), (0.162, 0.048, 0.215), (0.06, 0.18, 0.30), M('back','Y'))
+    add_sphere('lat_R', ( 0.220,-0.122, 1.085), (0.162, 0.048, 0.215), (0.06,-0.18,-0.30), M('back','Y'))
+    add_sphere('tm_L',  (-0.275,-0.090, 1.280), (0.072, 0.040, 0.068), (0, 0.15, 0.35),    M('back','Y'))
+    add_sphere('tm_R',  ( 0.275,-0.090, 1.280), (0.072, 0.040, 0.068), (0,-0.15,-0.35),    M('back','Y'))
+
+    # 僧帽筋（上・中・下）
+    add_sphere('trap_u_L', (-0.145,-0.082, 1.435), (0.125, 0.044, 0.098), (0,0, 0.28), M('back','Y'))
+    add_sphere('trap_u_R', ( 0.145,-0.082, 1.435), (0.125, 0.044, 0.098), (0,0,-0.28), M('back','Y'))
+    add_sphere('trap_m',   (    0,-0.122, 1.285),  (0.210, 0.040, 0.112), (0,0,0),     M('back','X'))
+    add_sphere('trap_l',   (    0,-0.112, 1.155),  (0.162, 0.036, 0.095), (0,0,0),     M('back','X'))
+
+    # 大臀筋 + 中臀筋
+    add_sphere('glu_L', (-0.132,-0.095, 0.855), (0.148, 0.080, 0.135), (0,0,0), M('glutes','X'))
+    add_sphere('glu_R', ( 0.132,-0.095, 0.855), (0.148, 0.080, 0.135), (0,0,0), M('glutes','X'))
+    add_sphere('gm_L',  (-0.175,-0.062, 0.935), (0.088, 0.055, 0.095), (0,0,0), M('glutes','X'))
+    add_sphere('gm_R',  ( 0.175,-0.062, 0.935), (0.088, 0.055, 0.095), (0,0,0), M('glutes','X'))
+
+    # ハムストリング（大腿二頭筋 + 半腱様筋）
+    add_sphere('bf_L', (-0.142,-0.072, 0.675), (0.075, 0.060, 0.215), (0,0,0), M('hamstrings','Z'))
+    add_sphere('bf_R', ( 0.142,-0.072, 0.675), (0.075, 0.060, 0.215), (0,0,0), M('hamstrings','Z'))
+    add_sphere('st_L', (-0.092,-0.078, 0.672), (0.055, 0.055, 0.205), (0,0,0), M('hamstrings','Z'))
+    add_sphere('st_R', ( 0.092,-0.078, 0.672), (0.055, 0.055, 0.205), (0,0,0), M('hamstrings','Z'))
+
+    # 脊柱起立筋
+    add_sphere('es_L', (-0.055,-0.115, 1.045), (0.045, 0.038, 0.245), (0,0,0), M('back','Z'))
+    add_sphere('es_R', ( 0.055,-0.115, 1.045), (0.045, 0.038, 0.245), (0,0,0), M('back','Z'))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. STUDIO LIGHTING（グレイジング照明2灯追加）
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _add_light(name, ltype, loc, energy, color, size=None, spot_deg=None):
+    bpy.ops.object.light_add(type=ltype, location=loc)
+    o = bpy.context.active_object
+    o.name = name
+    o.data.energy = energy
+    o.data.color  = tuple(color)
+    if size and ltype == 'AREA':
+        o.data.size = size
+    if spot_deg and ltype == 'SPOT':
+        o.data.spot_size  = math.radians(spot_deg)
+        o.data.spot_blend = 0.25
+    target = Vector((0.0, 0.0, 0.95))
+    d = target - Vector(loc)
+    if d.length > 0.001:
+        o.rotation_euler = d.to_track_quat('-Z', 'Y').to_euler()
+    return o
+
+
 def setup_lighting():
-    """
-    ボディビルコンテスト照明 (5灯):
-    - Key Light   : 正面やや右上、弱め（影を殺さない）
-    - Rim L/R     : 左右斜め後方から強烈なエッジ光（筋肉カットを際立たせる）
-    - Top Spot    : 真上から → 三角筋・僧帽筋のセパレーションを強調
-    - Floor Bounce: 床反射の微弱なアンビエント
-    """
-    # ── Key Light (正面右上、暖色、やや抑制) ─────────────────
-    bpy.ops.object.light_add(type='AREA', location=(1.2, -1.5, 1.6))
-    key = bpy.context.active_object
-    key.name = "Key_Light"
-    key.data.energy = 80.0        # 控えめ: 影を潰さない
-    key.data.color = (1.0, 0.90, 0.75)  # 5200K 暖色
-    key.data.size = 0.6
-    key.rotation_euler = (math.radians(50), 0, math.radians(25))
+    # メイン照明（3点）
+    _add_light('key',   'AREA', (-1.40,-2.20, 2.25), P["key_energy"],   P["key_color"],   size=1.2)
+    _add_light('fill',  'AREA', ( 1.80,-1.00, 1.55), P["fill_energy"],  P["fill_color"],  size=1.6)
+    _add_light('rim_R', 'SPOT', (-1.00, 2.80, 2.05), P["rim_R_energy"], [1.00, 0.92, 0.80], spot_deg=32)
+    _add_light('rim_L', 'SPOT', ( 1.20, 2.55, 1.88), P["rim_L_energy"], [0.75, 0.88, 1.00], spot_deg=32)
+    _add_light('top',   'SPOT', ( 0.10,-0.40, 3.30), P["top_energy"],   [0.95, 0.95, 1.00], spot_deg=48)
+    # グレイジング照明（かすめ角でバンプ縞を際立たせる）
+    # カメラは-Y方向から撮影 → 側面(±X)からのかすめ光でフロント面のバンプが明瞭に
+    _add_light('graze_L', 'AREA', (-3.20, 0.0, 1.10), P["graze_energy"], [1.00, 0.96, 0.88], size=0.30)
+    _add_light('graze_R', 'AREA', ( 3.20, 0.0, 1.10), P["graze_energy"], [1.00, 0.96, 0.88], size=0.30)
 
-    # ── Rim Light 右 (後方右45°, 強烈、やや暖色) ─────────────
-    bpy.ops.object.light_add(type='SPOT', location=(1.6, 1.8, 0.8))
-    rim_r = bpy.context.active_object
-    rim_r.name = "Rim_Right"
-    rim_r.data.energy = 600.0    # 非常に強い
-    rim_r.data.color = (1.0, 0.85, 0.6)  # 暖色リム
-    rim_r.data.spot_size = math.radians(28)
-    rim_r.data.spot_blend = 0.08
-    rim_r.rotation_euler = (math.radians(-10), 0, math.radians(220))
-
-    # ── Rim Light 左 (後方左45°, 強烈、冷色) ─────────────────
-    bpy.ops.object.light_add(type='SPOT', location=(-1.6, 1.8, 0.8))
-    rim_l = bpy.context.active_object
-    rim_l.name = "Rim_Left"
-    rim_l.data.energy = 500.0
-    rim_l.data.color = (0.7, 0.85, 1.0)  # 冷色リム (コントラスト)
-    rim_l.data.spot_size = math.radians(28)
-    rim_l.data.spot_blend = 0.08
-    rim_l.rotation_euler = (math.radians(-10), 0, math.radians(140))
-
-    # ── Top Spot (真上から、狭い照射角) ─────────────────────
-    bpy.ops.object.light_add(type='SPOT', location=(0.0, -0.3, 3.0))
-    top = bpy.context.active_object
-    top.name = "Top_Spot"
-    top.data.energy = 300.0
-    top.data.color = (1.0, 1.0, 1.0)
-    top.data.spot_size = math.radians(22)
-    top.data.spot_blend = 0.05
-    top.rotation_euler = (math.radians(0), 0, 0)
-
-    # ── Floor Bounce (床下から微弱なアンビエント) ────────────
-    bpy.ops.object.light_add(type='AREA', location=(0.0, -0.5, -1.4))
-    floor = bpy.context.active_object
-    floor.name = "Floor_Bounce"
-    floor.data.energy = 15.0
-    floor.data.color = (0.6, 0.7, 1.0)  # 冷たい反射
-    floor.data.size = 2.0
-    floor.rotation_euler = (math.radians(180), 0, 0)
+    scene = bpy.context.scene
+    if scene.world is None:
+        scene.world = bpy.data.worlds.new("World")
+    scene.world.use_nodes = True
+    bg = scene.world.node_tree.nodes.get('Background')
+    if bg:
+        bg.inputs['Color'].default_value    = (0.0, 0.0, 0.0, 1.0)
+        bg.inputs['Strength'].default_value = 0.0
 
 
-def setup_camera(resolution_x: int, resolution_y: int):
-    """フロントビューカメラのセットアップ"""
-    bpy.ops.object.camera_add(location=(0, -3.8, 0.05))
+# ─────────────────────────────────────────────────────────────────────────────
+# 7. CAMERA
+# ─────────────────────────────────────────────────────────────────────────────
+
+def setup_camera():
+    cam_loc = (-0.18, -3.75, 0.94)
+    bpy.ops.object.camera_add(location=cam_loc)
     cam = bpy.context.active_object
-    cam.name = "Main_Camera"
-    cam.rotation_euler = (math.radians(90), 0, 0)
-    cam.data.type = 'PERSP'
-    cam.data.lens = 38  # 全身がフレームインする焦点距離
+    cam.name = 'anatomy_cam'
+    target = Vector((0.0, 0.0, 0.94))
+    d = target - Vector(cam_loc)
+    cam.rotation_euler = d.to_track_quat('-Z', 'Y').to_euler()
+    cam.data.lens       = 52.0
+    cam.data.clip_start = 0.1
+    cam.data.clip_end   = 20.0
     bpy.context.scene.camera = cam
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8. CYCLES RENDERER（v5.0 主要変更点）
+# ─────────────────────────────────────────────────────────────────────────────
+
+def setup_renderer():
+    """
+    Cyclesレンダラー + OIDN デノイザー
+    - 物理的に正確なSSS（エッジ透過・マグマ内部発光）
+    - バンプマップが全照明角度で正確に描画される
+    - 32サンプル + OIDN → 品質は128サンプル相当
+    """
     scene = bpy.context.scene
-    scene.render.resolution_x = resolution_x
-    scene.render.resolution_y = resolution_y
+    scene.render.engine = 'CYCLES'
+
+    # v5.1: 高解像度（Cyclesが44秒と高速なので1024×2048に戻す）
+    scene.render.resolution_x          = 1024
+    scene.render.resolution_y          = 2048
     scene.render.resolution_percentage = 100
+    scene.render.image_settings.file_format = 'PNG'
+    scene.render.filepath = OUTPUT_PATH
 
-
-def setup_eevee_renderer():
-    """
-    EEVEE レンダラーの最適設定 (Blender 4.x / 5.x 両対応)
-    Gemini推奨: Bloom + Screen Space Reflections でパンプ感強調
-    """
-    scene = bpy.context.scene
-    # Blender 5.0 では 'BLENDER_EEVEE'、4.2以前は 'BLENDER_EEVEE_NEXT' も可
-    scene.render.engine = 'BLENDER_EEVEE'
-
-    eevee = scene.eevee
-    for attr, val in [
-        ('use_bloom', True),
-        ('bloom_threshold', 0.4),
-        ('bloom_intensity', 1.2),
-        ('bloom_radius', 5.0),
-        ('use_ssr', True),
-        ('ssr_quality', 0.5),
-        ('taa_render_samples', 64),
-    ]:
+    # カラーマネジメント
+    for vt in ('AgX', 'Filmic', 'Standard'):
         try:
-            setattr(eevee, attr, val)
-        except AttributeError:
-            pass
+            scene.view_settings.view_transform = vt
+            break
+        except Exception:
+            continue
+    scene.view_settings.look     = 'None'
+    scene.view_settings.exposure = 0.20
+    scene.view_settings.gamma    = 1.10
 
-    # カラーマネジメント: Standard = トーンマッピングなし → 発光色が鮮やかになる
-    try:
-        scene.view_settings.view_transform = 'Standard'
-        scene.view_settings.exposure = 0.0
-        scene.view_settings.gamma = 1.0
-    except Exception:
-        pass
+    # Cycles コア設定
+    cyc = scene.cycles
+    cyc.samples               = P["cycles_samples"]   # 32
+    cyc.use_adaptive_sampling = True
+    cyc.adaptive_min_samples  = 8
+    cyc.adaptive_threshold    = 0.025
 
-    # 背景色 (ダークスタジオ)
-    try:
-        world = bpy.data.worlds["World"]
-        world.use_nodes = True
-        bg_node = world.node_tree.nodes.get("Background")
-        if bg_node:
-            bg_node.inputs["Color"].default_value = (0.006, 0.006, 0.010, 1.0)
-            bg_node.inputs["Strength"].default_value = 0.0
-    except Exception:
-        pass
+    # OIDN デノイザー（Intel Open Image Denoise）
+    cyc.use_denoising = True
+    for dn in ('OPENIMAGEDENOISE', 'NLM'):
+        try:
+            cyc.denoiser = dn
+            print(f"  [Cycles] Denoiser: {dn}")
+            break
+        except Exception:
+            continue
+
+    # Caustics オフ（レンダリング高速化）
+    for attr in ('caustics_reflective', 'caustics_refractive'):
+        try: setattr(cyc, attr, False)
+        except Exception: pass
+
+    # GPU 優先 → CPU フォールバック
+    gpu_ok = False
+    for dev_type in ('OPTIX', 'CUDA', 'HIP', 'METAL'):
+        try:
+            prefs = bpy.context.preferences.addons['cycles'].preferences
+            prefs.compute_device_type = dev_type
+            prefs.get_devices()
+            gpu_devs = [d for d in prefs.devices if d.type != 'CPU']
+            if gpu_devs:
+                for d in gpu_devs: d.use = True
+                scene.cycles.device = 'GPU'
+                print(f"  [Cycles] GPU ({dev_type}): {gpu_devs[0].name}")
+                gpu_ok = True
+                break
+        except Exception:
+            continue
+    if not gpu_ok:
+        scene.cycles.device = 'CPU'
+        print("  [Cycles] CPU モード (GPUなし)")
+
+    print(f"  [Cycles] samples={cyc.samples}, res=768x1536, denoiser=ON")
 
 
-def setup_compositing_glare():
-    """
-    Blender 5.0 対応のGlare設定。
-    APIバージョン差異を吸収しつつcompositing glareを試みる。
-    """
+# ─────────────────────────────────────────────────────────────────────────────
+# 9. COMPOSITING（グロー効果）
+# ─────────────────────────────────────────────────────────────────────────────
+
+def setup_compositing():
     scene = bpy.context.scene
+    scene.use_nodes = True
+    tree = getattr(scene, 'node_tree', None)
+    if not tree:
+        return
     try:
-        scene.use_nodes = True
-    except Exception:
-        pass
-
-    # Blender 5.0+ では compositing_node_tree を使う
-    tree = getattr(scene, 'compositing_node_tree', None)
-    if tree is None:
-        tree = getattr(scene, 'node_tree', None)
-    if tree is None:
-        return  # compositing非対応バージョンはスキップ
-
-    nodes = tree.nodes
-    links = tree.links
-    nodes.clear()
-
-    render_layers = nodes.new('CompositorNodeRLayers')
-    render_layers.location = (-400, 0)
-
-    glare = nodes.new('CompositorNodeGlare')
-    glare.location = (-150, 0)
-    glare.glare_type = 'FOG_GLOW'
-    glare.threshold = 0.5
-    glare.size = 7
-    glare.mix = 0.8
-
-    composite = nodes.new('CompositorNodeComposite')
-    composite.location = (100, 0)
-
-    links.new(render_layers.outputs["Image"], glare.inputs["Image"])
-    links.new(glare.outputs["Image"], composite.inputs["Image"])
+        tree.nodes.clear()
+        rl  = tree.nodes.new('CompositorNodeRLayers');   rl.location  = (-400, 0)
+        glr = tree.nodes.new('CompositorNodeGlare');     glr.location = (-100, 0)
+        com = tree.nodes.new('CompositorNodeComposite'); com.location = ( 300, 0)
+        glr.glare_type = 'FOG_GLOW'
+        glr.quality    = 'HIGH'
+        glr.threshold  = 0.60   # v5.2: 下げてグロー範囲を広げる
+        glr.size       = 7
+        tree.links.new(rl.outputs['Image'],  glr.inputs['Image'])
+        tree.links.new(glr.outputs['Image'], com.inputs['Image'])
+    except Exception as e:
+        print(f"[WARN] Compositing: {e}")
 
 
-# ── メイン処理 ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# 10. MAIN
+# ─────────────────────────────────────────────────────────────────────────────
 
 def main():
-    args = _load_args()
-    intensities: dict[str, float] = args["intensities"]
-    output_path: str = args["output_path"]
-    res_x: int = args.get("resolution_x", 512)
-    res_y: int = args.get("resolution_y", 1024)
+    print("\n=== Anatomy Grade Muscle Heatmap Renderer v5.0 ===")
+    print(f"  Output  : {OUTPUT_PATH}")
+    print(f"  Engine  : CYCLES + OIDN")
+    print(f"  Samples : {P['cycles_samples']}")
 
-    print(f"[muscle_heatmap] 強度データ受信: {intensities}")
-    print(f"[muscle_heatmap] 出力先: {output_path}")
-
-    # 1. シーンクリア
     clear_scene()
+    print("[1/7] Scene cleared")
 
-    # 2. ライティング
+    bm = make_base_mat('base')
+    create_body(bm)
+    print("[2/7] Body base created")
+
+    create_muscles()
+    print(f"[3/7] Muscles created  (objects: {len(bpy.data.objects)})")
+
     setup_lighting()
+    print("[4/7] Studio lighting set up (7-point: key/fill/rim×2/top/graze×2)")
 
-    # 3. カメラ
-    setup_camera(res_x, res_y)
+    setup_camera()
+    print("[5/7] Camera positioned")
 
-    # 4. レンダラー設定
-    setup_eevee_renderer()
+    setup_renderer()
+    setup_compositing()
+    print("[6/7] Cycles renderer configured")
 
-    # 4b. Compositing Glare (Bloom代替)
-    setup_compositing_glare()
-
-    # 5. ベース人体
-    body = create_body_base()
-    base_mat = create_base_material()
-    body.data.materials.append(base_mat)
-
-    # 6. 筋肉部位オーバーレイ（高品質マテリアル）
-    # 低強度でもネイビークリスタルとして全部位を描画（コントラストのため）
-    for group, zones in _GROUP_TO_ZONES.items():
-        intensity = intensities.get(group, 0.0)
-
-        for zone_key in zones:
-            if zone_key not in _MUSCLE_ZONES:
-                continue
-            cx, cy, cz, sx, sy, sz = _MUSCLE_ZONES[zone_key]
-            create_muscle_object(
-                zone_key=zone_key,
-                center=(cx, cy, cz),
-                size=(sx * 0.88, sy * 0.88, sz * 0.88),
-                intensity=intensity,
-            )
-            print(f"  [{zone_key}] intensity={intensity:.3f}")
-
-    # 7. レンダリング
-    bpy.context.scene.render.filepath = output_path
-    bpy.context.scene.render.image_settings.file_format = 'PNG'
+    out_dir = os.path.dirname(os.path.abspath(OUTPUT_PATH))
+    os.makedirs(out_dir, exist_ok=True)
+    print(f"[7/7] Rendering -> {OUTPUT_PATH}")
     bpy.ops.render.render(write_still=True)
-    print(f"[muscle_heatmap] レンダリング完了: {output_path}")
+
+    if os.path.exists(OUTPUT_PATH):
+        sz = os.path.getsize(OUTPUT_PATH) / 1024
+        print(f"\n>>> SUCCESS: {OUTPUT_PATH}  ({sz:.1f} KB)")
+    else:
+        print("\n>>> ERROR: Output file not found!")
 
 
 main()

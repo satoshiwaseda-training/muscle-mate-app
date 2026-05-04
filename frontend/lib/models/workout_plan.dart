@@ -1,34 +1,34 @@
 // 筋トレメニューの Dart モデル
-// backend/src/schemas/workout.py の WorkoutPlan と完全対応
+// backend/src/schemas/workout.py と完全対応（計画書 v5）
 // fromJson / toJson で安全なシリアライズを保証
 
 // ── Enums ────────────────────────────────────────────────────────────────────
 
 enum Goal {
-  muscleGain('muscle_gain', '筋肥大'),
-  weightLoss('weight_loss', '減量'),
-  endurance('endurance', '持久力'),
-  general('general_fitness', '総合体力');
+  muscleGain('muscle_gain', '筋力アップ'),
+  weightLoss('weight_loss', '引き締め'),
+  endurance('endurance', '疲れにくい体'),
+  general('general_fitness', '健康維持');
 
   const Goal(this.value, this.label);
   final String value;
   final String label;
 
   static Goal fromValue(String v) =>
-      Goal.values.firstWhere((e) => e.value == v);
+      Goal.values.firstWhere((e) => e.value == v, orElse: () => Goal.general);
 }
 
 enum Level {
-  beginner('beginner', '初心者'),
-  intermediate('intermediate', '中級者'),
-  advanced('advanced', '上級者');
+  beginner('beginner', 'これから始める'),
+  intermediate('intermediate', '慣れてきた'),
+  advanced('advanced', 'しっかり鍛える');
 
   const Level(this.value, this.label);
   final String value;
   final String label;
 
   static Level fromValue(String v) =>
-      Level.values.firstWhere((e) => e.value == v);
+      Level.values.firstWhere((e) => e.value == v, orElse: () => Level.beginner);
 }
 
 enum Equipment {
@@ -45,6 +45,37 @@ enum Equipment {
   static Equipment fromValue(String v) =>
       Equipment.values.firstWhere((e) => e.value == v,
           orElse: () => Equipment.bodyweight);
+}
+
+// v5 で追加: 任意の優先リフト
+enum PriorityLift {
+  none('none', '指定なし'),
+  bench('bench', 'ベンチプレス'),
+  squat('squat', 'スクワット'),
+  deadlift('deadlift', 'デッドリフト');
+
+  const PriorityLift(this.value, this.label);
+  final String value;
+  final String label;
+
+  static PriorityLift fromValue(String v) =>
+      PriorityLift.values.firstWhere((e) => e.value == v,
+          orElse: () => PriorityLift.none);
+}
+
+// v5 で追加: Advisory のレベル
+enum AdvisoryLevel {
+  none('none'),
+  partialSkip('partial_skip'),
+  restOrConsult('rest_or_consult'),
+  deload('deload');
+
+  const AdvisoryLevel(this.value);
+  final String value;
+
+  static AdvisoryLevel fromValue(String v) =>
+      AdvisoryLevel.values.firstWhere((e) => e.value == v,
+          orElse: () => AdvisoryLevel.none);
 }
 
 // ── リクエストモデル: Flutter → FastAPI ──────────────────────────────────────
@@ -81,6 +112,11 @@ class WorkoutRequest {
   final String? notes;
   final Big3Max? big3Max;
 
+  // v5 で追加された任意フィールド
+  final PriorityLift? priorityLift;
+  final double? bodyWeightKg;
+  final double? yearsOfTraining;
+
   const WorkoutRequest({
     required this.goal,
     required this.level,
@@ -91,6 +127,9 @@ class WorkoutRequest {
     this.age,
     this.notes,
     this.big3Max,
+    this.priorityLift,
+    this.bodyWeightKg,
+    this.yearsOfTraining,
   });
 
   Map<String, dynamic> toJson() => {
@@ -103,6 +142,10 @@ class WorkoutRequest {
         if (age != null) 'age': age,
         if (notes != null && notes!.isNotEmpty) 'notes': notes,
         if (big3Max != null && big3Max!.hasAny) 'big3_max': big3Max!.toJson(),
+        if (priorityLift != null && priorityLift != PriorityLift.none)
+          'priority_lift': priorityLift!.value,
+        if (bodyWeightKg != null) 'body_weight_kg': bodyWeightKg,
+        if (yearsOfTraining != null) 'years_of_training': yearsOfTraining,
       };
 }
 
@@ -117,7 +160,12 @@ class Exercise {
   final Equipment equipment;
   final List<String> targetMuscles;
   final String coachingPoint;
-  final double? weightKg; // BIG3 MAXから算出されたトレーニング重量
+  final double? weightKg;
+
+  // v5 で追加
+  final List<String> evidenceRefs;
+  final List<String> safetyFlags;
+  final String? progressionRule;
 
   const Exercise({
     required this.nameJa,
@@ -129,6 +177,9 @@ class Exercise {
     required this.targetMuscles,
     required this.coachingPoint,
     this.weightKg,
+    this.evidenceRefs = const [],
+    this.safetyFlags = const [],
+    this.progressionRule,
   });
 
   factory Exercise.fromJson(Map<String, dynamic> json) => Exercise(
@@ -141,6 +192,13 @@ class Exercise {
         targetMuscles: List<String>.from(json['target_muscles'] as List),
         coachingPoint: json['coaching_point'] as String,
         weightKg: (json['weight_kg'] as num?)?.toDouble(),
+        evidenceRefs: json['evidence_refs'] != null
+            ? List<String>.from(json['evidence_refs'] as List)
+            : const [],
+        safetyFlags: json['safety_flags'] != null
+            ? List<String>.from(json['safety_flags'] as List)
+            : const [],
+        progressionRule: json['progression_rule'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -153,6 +211,9 @@ class Exercise {
         'target_muscles': targetMuscles,
         'coaching_point': coachingPoint,
         if (weightKg != null) 'weight_kg': weightKg,
+        'evidence_refs': evidenceRefs,
+        'safety_flags': safetyFlags,
+        if (progressionRule != null) 'progression_rule': progressionRule,
       };
 }
 
@@ -197,11 +258,15 @@ class WorkoutPlan {
   final List<DaySession> weeklySchedule;
   final String generalAdvice;
 
+  // v5 で追加
+  final List<String> safetyFlags;
+
   const WorkoutPlan({
     required this.planName,
     required this.durationWeeks,
     required this.weeklySchedule,
     required this.generalAdvice,
+    this.safetyFlags = const [],
   });
 
   factory WorkoutPlan.fromJson(Map<String, dynamic> json) => WorkoutPlan(
@@ -211,6 +276,9 @@ class WorkoutPlan {
             .map((e) => DaySession.fromJson(e as Map<String, dynamic>))
             .toList(),
         generalAdvice: json['general_advice'] as String,
+        safetyFlags: json['safety_flags'] != null
+            ? List<String>.from(json['safety_flags'] as List)
+            : const [],
       );
 
   Map<String, dynamic> toJson() => {
@@ -218,17 +286,54 @@ class WorkoutPlan {
         'duration_weeks': durationWeeks,
         'weekly_schedule': weeklySchedule.map((s) => s.toJson()).toList(),
         'general_advice': generalAdvice,
+        'safety_flags': safetyFlags,
       };
 }
 
+// v5 §6.4 で追加: ユーザーへの推奨アクション
+class Advisory {
+  final AdvisoryLevel level;
+  final String? title;
+  final String? body;
+  final List<String> actions;
+
+  const Advisory({
+    this.level = AdvisoryLevel.none,
+    this.title,
+    this.body,
+    this.actions = const [],
+  });
+
+  factory Advisory.fromJson(Map<String, dynamic> json) => Advisory(
+        level: AdvisoryLevel.fromValue(json['level'] as String? ?? 'none'),
+        title: json['title'] as String?,
+        body: json['body'] as String?,
+        actions: json['actions'] != null
+            ? List<String>.from(json['actions'] as List)
+            : const [],
+      );
+
+  bool get isNone => level == AdvisoryLevel.none;
+  bool get isRestOrConsult => level == AdvisoryLevel.restOrConsult;
+  bool get isPartialSkip => level == AdvisoryLevel.partialSkip;
+  bool get isDeload => level == AdvisoryLevel.deload;
+}
+
+// v5 §6.4 で拡張: トップレベルに safety_flags / advisory / external_ai_used を追加
 class WorkoutResponse {
   final bool success;
   final WorkoutPlan? plan;
+  final List<String> safetyFlags;
+  final Advisory advisory;
+  final bool externalAiUsed;
   final String? errorMessage;
 
   const WorkoutResponse({
     required this.success,
     this.plan,
+    this.safetyFlags = const [],
+    this.advisory = const Advisory(),
+    this.externalAiUsed = false,
     this.errorMessage,
   });
 
@@ -238,6 +343,13 @@ class WorkoutResponse {
         plan: json['plan'] != null
             ? WorkoutPlan.fromJson(json['plan'] as Map<String, dynamic>)
             : null,
+        safetyFlags: json['safety_flags'] != null
+            ? List<String>.from(json['safety_flags'] as List)
+            : const [],
+        advisory: json['advisory'] != null
+            ? Advisory.fromJson(json['advisory'] as Map<String, dynamic>)
+            : const Advisory(),
+        externalAiUsed: json['external_ai_used'] as bool? ?? false,
         errorMessage: json['error_message'] as String?,
       );
 }

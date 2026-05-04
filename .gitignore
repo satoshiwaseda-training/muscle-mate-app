@@ -21,3 +21,24 @@ frontend/pubspec.lock
 .vscode/
 .idea/
 *.swp
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# テスト・キャッシュ
+.pytest_cache/
+backend/pytest-cache-files-*
+*.cache
+
+# ログ（コミット禁止）
+*.log
+backend/backend-ui.log
+frontend/flutter-*.log
+
+# 一時ファイル・バックアップ
+*.bak
+*.backup
+*~
+

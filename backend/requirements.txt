@@ -1,7 +1,13 @@
 fastapi==0.115.8
 uvicorn[standard]==0.34.0
-google-generativeai==0.8.4
 python-dotenv==1.0.1
 pydantic==2.10.6
 pydantic-settings==2.8.0
 httpx==0.28.1
+# 構造化ログ（計画書 v5 §11.4: 本文を出さないフィルタ）
+structlog==25.1.0
+# レート制限（計画書 v5 §11.3）
+slowapi==0.1.9
+# Gemini 依存（google-generativeai）は計画書 v5 フェーズ 1 で撤廃しました。
+# 外部 AI（Groq）を任意機能として有効化する場合のみ以下を導入:
+# groq==0.13.0  # OpenAI 互換クライアント
