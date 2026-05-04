@@ -542,30 +542,30 @@ class _CuteExerciseAvatar extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.88),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.sentiment_very_satisfied,
-              color: AppColors.background,
-              size: 34,
+          // ホーム画面と同じマスコット画像で統一
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Image.asset(
+              'assets/ui/home/home_mascot_character.png',
+              width: 70,
+              height: 70,
+              fit: BoxFit.cover,
+              alignment: Alignment.bottomCenter,
             ),
           ),
+          // 右下に種目カテゴリの小バッジを残す（一目で胸/背/脚等を識別）
           Positioned(
-            right: 10,
-            bottom: 9,
+            right: 6,
+            bottom: 6,
             child: Container(
-              width: 27,
-              height: 27,
-              decoration: const BoxDecoration(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
                 color: AppColors.background,
                 shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.5),
               ),
-              child: Icon(icon, color: AppColors.primary, size: 17),
+              child: Icon(icon, color: AppColors.primary, size: 14),
             ),
           ),
         ],

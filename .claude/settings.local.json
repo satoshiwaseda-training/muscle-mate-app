@@ -24,7 +24,28 @@
       "Bash(cp:*)",
       "Bash(start:*)",
       "Bash(ls:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(python3 -c \"from src.schemas.workout import RecentHistorySummary, WorkoutRequest, ProposalRationale, WorkoutPlan; print\\('OK', RecentHistorySummary.model_fields.keys\\(\\)\\); print\\('OK', ProposalRationale.model_fields.keys\\(\\)\\)\")",
+      "Bash(curl -s -X POST http://127.0.0.1:8000/workout/generate -H 'Content-Type: application/json' -H 'X-External-AI-Optin: false' -d '{ *)",
+      "Bash(python3 -c ' *)",
+      "Bash(awk '{print $2}')",
+      "Bash(xargs -I {} kill {})",
+      "Bash(curl -s -o /dev/null http://127.0.0.1:8000/health)",
+      "Bash(curl -s http://127.0.0.1:8000/health)",
+      "Bash(python3 -m pytest tests/test_history_optimizer.py -v)",
+      "Bash(python3 -m pytest tests/ -v)",
+      "Bash(osascript -e 'tell application \"Google Chrome\" to set URL of active tab of window 1 to \"http://127.0.0.1:8080\"')",
+      "Bash(osascript -e 'tell application \"Google Chrome\" to reload active tab of window 1')",
+      "Bash(git reset *)",
+      "Bash(git checkout *)",
+      "Bash(curl -s -o /dev/null -w \"top: %{http_code}\\\\n\" https://satoshiwaseda-training.github.io/muscle-mate-app/)",
+      "Bash(curl -s -o /dev/null -w \"privacy: %{http_code}\\\\n\" https://satoshiwaseda-training.github.io/muscle-mate-app/legal/privacy_policy.html)",
+      "Bash(curl -s -o /dev/null -w \"support: %{http_code}\\\\n\" https://satoshiwaseda-training.github.io/muscle-mate-app/legal/support.html)",
+      "Bash(curl -s \"https://satoshiwaseda-training.github.io/muscle-mate-app/legal/privacy_policy.html?t=$\\(date +%s\\)\")",
+      "Bash(curl -s -o /dev/null -w \"web: %{http_code}\\\\n\" http://127.0.0.1:8080/)",
+      "Bash(curl -s -o /dev/null -w \"api: %{http_code}\\\\n\" http://127.0.0.1:8000/health)",
+      "Bash(python3 -m http.server 8080)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:8080/)"
     ]
   }
 }

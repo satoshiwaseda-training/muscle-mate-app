@@ -1115,6 +1115,7 @@ class _ResultMascot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ホーム画面・ワークアウトセッション画面と同じマスコット画像で統一
     return Container(
       width: size,
       height: size,
@@ -1126,10 +1127,15 @@ class _ResultMascot extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
       ),
-      child: Icon(
-        Icons.fitness_center,
-        color: Colors.white,
-        size: size * 0.5,
+      child: ClipOval(
+        child: Padding(
+          padding: EdgeInsets.all(size * 0.04),
+          child: Image.asset(
+            'assets/ui/home/home_mascot_character.png',
+            fit: BoxFit.cover,
+            alignment: Alignment.bottomCenter,
+          ),
+        ),
       ),
     );
   }
