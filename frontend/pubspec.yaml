@@ -14,6 +14,9 @@ dependencies:
   shared_preferences: ^2.3.2   # ワークアウト履歴の永続化
   table_calendar: ^3.1.2        # カレンダーUI
   intl: ^0.19.0                 # 日付フォーマット
+  share_plus: ^10.1.4           # SNS 共有・画像のシェア (iOS Native Share Sheet)
+  path_provider: ^2.1.5         # 共有用一時ファイルの保存先
+  cross_file: ^0.3.4+2          # share_plus が要求する共通ファイル型
 
 dev_dependencies:
   flutter_test:

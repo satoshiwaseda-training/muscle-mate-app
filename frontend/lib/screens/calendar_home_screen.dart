@@ -17,6 +17,7 @@ import 'history_screen.dart';
 import 'settings_screen.dart';
 import 'privacy_policy_screen.dart';
 import 'citations_screen.dart';
+import 'share_summary_screen.dart';
 
 class CalendarHomeScreen extends StatefulWidget {
   const CalendarHomeScreen({super.key});
@@ -1664,6 +1665,18 @@ class _AppDrawer extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const HistoryScreen()),
+                );
+              },
+            ),
+            _DrawerTile(
+              icon: Icons.ios_share,
+              label: '実績をシェア',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const ShareSummaryScreen()),
                 );
               },
             ),

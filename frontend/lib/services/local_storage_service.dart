@@ -3,6 +3,65 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/workout_record.dart';
 
+/// シェア画面用の達成サマリ統計（今日 / 1 週間 / 1 ヶ月の集計）
+class ShareSummaryStats {
+  final ShareSubStats today;
+  final ShareSubStats week;
+  final ShareSubStats month;
+  final int streak;
+
+  const ShareSummaryStats({
+    required this.today,
+    required this.week,
+    required this.month,
+    required this.streak,
+  });
+}
+
+class ShareSubStats {
+  final int sessionCount;          // 期間内のセッション数 (= 日数)
+  final int exerciseCount;         // 期間内に実施した種目の総数 (重複あり)
+  final double totalVolumeKg;      // 期間内の総ボリューム (重量 × レップ 合計)
+  final int totalSets;             // 期間内の総セット数
+  final List<String> topExercises; // 期間内に多く実施した種目 TOP3
+
+  const ShareSubStats({
+    required this.sessionCount,
+    required this.exerciseCount,
+    required this.totalVolumeKg,
+    required this.totalSets,
+    required this.topExercises,
+  });
+
+  factory ShareSubStats.fromRecords(List<WorkoutRecord> records) {
+    final exCounts = <String, int>{};
+    var volumeSum = 0.0;
+    var setCount = 0;
+    for (final r in records) {
+      for (final s in r.sets) {
+        exCounts[s.exerciseName] = (exCounts[s.exerciseName] ?? 0) + 1;
+        volumeSum += s.volume;
+        setCount += 1;
+      }
+    }
+    final sorted = exCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final top3 = sorted.take(3).map((e) => e.key).toList();
+
+    final uniqueDays = records
+        .map((r) => '${r.date.year}-${r.date.month}-${r.date.day}')
+        .toSet();
+
+    return ShareSubStats(
+      sessionCount: uniqueDays.length,
+      exerciseCount: exCounts.values.fold<int>(0, (a, b) => a + b),
+      totalVolumeKg: volumeSum,
+      totalSets: setCount,
+      topExercises: top3,
+    );
+  }
+}
+
 class LocalStorageService {
   static const _key         = 'workout_records';
   static const _settingsKey  = 'user_settings';
@@ -239,6 +298,40 @@ class LocalStorageService {
       'pain_reports_last_7d': painCounts,
       'top_exercises_30d': top10,
     };
+  }
+
+  // ── シェア用サマリ集計（v1.0: SNS 投稿画面で使用）─────────────────────────
+  //
+  // 今日 / 過去 7 日 / 過去 30 日の達成サマリを 1 構造体にまとめて返す。
+  // share_summary_screen.dart の表示ロジックに直接ぶら下げる。
+
+  static Future<ShareSummaryStats> buildShareSummary({DateTime? now}) async {
+    final reference = now ?? DateTime.now();
+    final all = await loadAll();
+
+    // 今日
+    final today = DateTime(reference.year, reference.month, reference.day);
+    final todayRecords = all.where((r) {
+      final d = DateTime(r.date.year, r.date.month, r.date.day);
+      return d == today;
+    }).toList();
+
+    // 過去 7 日
+    final last7 = all
+        .where((r) => reference.difference(r.date).inDays < 7)
+        .toList();
+
+    // 過去 30 日
+    final last30 = all
+        .where((r) => reference.difference(r.date).inDays < 30)
+        .toList();
+
+    return ShareSummaryStats(
+      today: ShareSubStats.fromRecords(todayRecords),
+      week: ShareSubStats.fromRecords(last7),
+      month: ShareSubStats.fromRecords(last30),
+      streak: _computeStreak(all, reference),
+    );
   }
 
   static Set<String> _uniqueDays(List<WorkoutRecord> records) {

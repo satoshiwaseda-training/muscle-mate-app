@@ -12,6 +12,7 @@ import '../services/api_service.dart';
 import '../services/evidence_index_service.dart';
 import '../services/local_storage_service.dart';
 import 'recovery_hub_screen.dart';
+import 'share_summary_screen.dart';
 import '../widgets/action_unlock_cards.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -974,22 +975,57 @@ class _WorkoutResultScreenState extends State<WorkoutResultScreen>
   // ── Home Button ─────────────────────────────────────────────────────────────
 
   Widget _buildHomeButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: AppGradientButton(
-        onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
-        child: const Center(
-          child: Text(
-            'ホームに戻る',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
+    return Column(
+      children: [
+        // 実績シェアボタン (v1.0 で追加)
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const ShareSummaryScreen()),
+              );
+            },
+            icon: const Icon(Icons.ios_share, size: 18),
+            label: const Text(
+              '今日の実績をシェアする',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.4,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary, width: 1.5),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
             ),
           ),
         ),
-      ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: AppGradientButton(
+            onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
+            child: const Center(
+              child: Text(
+                'ホームに戻る',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
