@@ -379,13 +379,25 @@ class _MuscleRow extends StatelessWidget {
 // Body Painter — SVGスタイル (named paths, fill + minimal stroke)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// _BodyPainter (v4: マスコット熊風のチビキャラ)
+//   ホーム画面の白熊マスコットに合わせた親しみやすいフォルム。
+//   厳密な解剖学より「どこを使ったかが一目でわかる + かわいい」を優先。
+//   マッスルグループのキー（chest/back/...）は維持しているので
+//   intensityMap や Analysis Panel との互換性は保たれている。
+// ─────────────────────────────────────────────────────────────────────────────
 class _BodyPainter extends CustomPainter {
   final Map<String, double> intensities;
   final bool showFront;
 
   const _BodyPainter({required this.intensities, required this.showFront});
 
-  static const _baseSkin = Color(0xFF2A2A2E);
+  // 熊の地肌（白っぽいアイボリー）
+  static const _bearFur = Color(0xFFF5EFE3);
+  // 熊の影色（耳の内側・口元など）
+  static const _bearShadow = Color(0xFFD9CFB7);
+  // 熊の目・鼻（温かみのある黒茶）
+  static const _bearInk = Color(0xFF2B201A);
 
   int _level(String key) => _toLevel(intensities[key] ?? 0.0);
 
@@ -398,15 +410,17 @@ class _BodyPainter extends CustomPainter {
     return p;
   }
 
-  Paint get _skin => Paint()..color = _baseSkin;
+  Paint get _fur => Paint()..color = _bearFur;
+  Paint get _shadow => Paint()..color = _bearShadow;
+  Paint get _ink => Paint()..color = _bearInk;
 
   Paint get _stroke => Paint()
-    ..color = Colors.white.withValues(alpha: 0.10)
+    ..color = _bearShadow.withValues(alpha: 0.55)
     ..style = PaintingStyle.stroke
-    ..strokeWidth = 0.7;
+    ..strokeWidth = 0.8;
 
-  // 名前付きパスを fill + stroke で描画
-  void _draw(Canvas canvas, String key, Path path) {
+  // 名前付きパスを fill + 細ストロークで描画
+  void _drawMuscle(Canvas canvas, String key, Path path) {
     canvas.drawPath(path, _fill(key));
     canvas.drawPath(path, _stroke);
   }
@@ -415,7 +429,8 @@ class _BodyPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-    _drawBase(canvas, w, h);
+    _drawBody(canvas, w, h); // 地肌（手脚＋胴体）
+    _drawHead(canvas, w, h); // 顔（耳・目鼻）
     if (showFront) {
       _drawFront(canvas, w, h);
     } else {
@@ -423,160 +438,293 @@ class _BodyPainter extends CustomPainter {
     }
   }
 
-  void _drawBase(Canvas canvas, double w, double h) {
-    canvas.drawCircle(Offset(w / 2, h * 0.068), w * 0.11, _skin);
-    canvas.drawCircle(Offset(w / 2, h * 0.068), w * 0.11, _stroke);
-    final neck = Path()
-      ..moveTo(w * 0.44, h * 0.12)
-      ..lineTo(w * 0.44, h * 0.155)
-      ..lineTo(w * 0.56, h * 0.155)
-      ..lineTo(w * 0.56, h * 0.12)
-      ..close();
-    canvas.drawPath(neck, _skin);
+  // 胴体・手脚の地肌（マスコット白熊のシルエット）
+  void _drawBody(Canvas canvas, double w, double h) {
+    // 胴体 (チビ寸法・丸みのある四角)
+    final torso = RRect.fromRectAndRadius(
+      Rect.fromLTRB(w * 0.27, h * 0.30, w * 0.73, h * 0.60),
+      Radius.circular(w * 0.10),
+    );
+    canvas.drawRRect(torso, _fur);
+    canvas.drawRRect(torso, _stroke);
+
+    // 腕 (左右・短く太く・丸い)
+    for (final xDir in [-1.0, 1.0]) {
+      final cx = w * (0.5 + xDir * 0.34);
+      final arm = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(cx, h * 0.41),
+          width: w * 0.16,
+          height: h * 0.24,
+        ),
+        Radius.circular(w * 0.07),
+      );
+      canvas.drawRRect(arm, _fur);
+      canvas.drawRRect(arm, _stroke);
+    }
+
+    // 脚 (左右・短く太く・丸い)
+    for (final xDir in [-1.0, 1.0]) {
+      final cx = w * (0.5 + xDir * 0.16);
+      final leg = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(cx, h * 0.78),
+          width: w * 0.20,
+          height: h * 0.34,
+        ),
+        Radius.circular(w * 0.08),
+      );
+      canvas.drawRRect(leg, _fur);
+      canvas.drawRRect(leg, _stroke);
+    }
   }
 
+  // 熊の顔（前面のときは目鼻、背面では後頭部のみ）
+  void _drawHead(Canvas canvas, double w, double h) {
+    final headCenter = Offset(w * 0.5, h * 0.13);
+    final headRadius = w * 0.20;
+
+    // 耳（左右・小さく丸く）
+    for (final xDir in [-1.0, 1.0]) {
+      final earCenter = Offset(
+        w * (0.5 + xDir * 0.18),
+        h * 0.04,
+      );
+      canvas.drawCircle(earCenter, w * 0.07, _fur);
+      canvas.drawCircle(earCenter, w * 0.07, _stroke);
+      // 耳の内側
+      canvas.drawCircle(earCenter, w * 0.035, _shadow);
+    }
+
+    // 顔本体
+    canvas.drawCircle(headCenter, headRadius, _fur);
+    canvas.drawCircle(headCenter, headRadius, _stroke);
+
+    if (showFront) {
+      // 鼻まわり（口元の薄いアイボリー）
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(w * 0.5, h * 0.155),
+          width: w * 0.20,
+          height: h * 0.07,
+        ),
+        _shadow,
+      );
+
+      // 目（左右の黒丸・光沢小ドット付き）
+      for (final xDir in [-1.0, 1.0]) {
+        final eyeCenter = Offset(w * (0.5 + xDir * 0.085), h * 0.115);
+        canvas.drawCircle(eyeCenter, w * 0.022, _ink);
+        canvas.drawCircle(
+          Offset(eyeCenter.dx + w * 0.008, eyeCenter.dy - h * 0.005),
+          w * 0.008,
+          Paint()..color = Colors.white,
+        );
+      }
+
+      // 鼻
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(w * 0.5, h * 0.142),
+          width: w * 0.038,
+          height: h * 0.022,
+        ),
+        _ink,
+      );
+
+      // 口（小さな笑顔）
+      final mouth = Path()
+        ..moveTo(w * 0.46, h * 0.165)
+        ..quadraticBezierTo(w * 0.5, h * 0.180, w * 0.54, h * 0.165);
+      canvas.drawPath(
+        mouth,
+        Paint()
+          ..color = _bearInk
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+    // 背面のときは何も描かない（後頭部の白い円のみ）
+  }
+
+  // ── 前面: 各部位を熊の体の上にカラー付きパッチで重ねる ──────────────
   void _drawFront(Canvas canvas, double w, double h) {
-    // 胸 (大胸筋)
-    _draw(canvas, 'chest', Path()
-      ..moveTo(w * 0.36, h * 0.155)
-      ..cubicTo(w * 0.18, h * 0.17, w * 0.16, h * 0.24, w * 0.22, h * 0.31)
-      ..cubicTo(w * 0.28, h * 0.34, w * 0.42, h * 0.34, w * 0.48, h * 0.30)
-      ..lineTo(w * 0.48, h * 0.155)
-      ..close()
-      ..moveTo(w * 0.64, h * 0.155)
-      ..cubicTo(w * 0.82, h * 0.17, w * 0.84, h * 0.24, w * 0.78, h * 0.31)
-      ..cubicTo(w * 0.72, h * 0.34, w * 0.58, h * 0.34, w * 0.52, h * 0.30)
-      ..lineTo(w * 0.52, h * 0.155)
-      ..close());
+    // 胸 (横長の丸み・タンクトップ風の上部)
+    _drawMuscle(
+      canvas,
+      'chest',
+      Path()
+        ..addRRect(RRect.fromRectAndRadius(
+          Rect.fromLTRB(w * 0.30, h * 0.31, w * 0.70, h * 0.43),
+          Radius.circular(w * 0.05),
+        )),
+    );
 
-    // 肩 (三角筋前部)
-    _draw(canvas, 'shoulders', Path()
-      ..addOval(Rect.fromCenter(
-          center: Offset(w * 0.18, h * 0.185), width: w * 0.16, height: h * 0.10))
-      ..addOval(Rect.fromCenter(
-          center: Offset(w * 0.82, h * 0.185), width: w * 0.16, height: h * 0.10)));
+    // 肩 (左右の小円・やわらかい)
+    _drawMuscle(
+      canvas,
+      'shoulders',
+      Path()
+        ..addOval(Rect.fromCenter(
+            center: Offset(w * 0.18, h * 0.32),
+            width: w * 0.18,
+            height: h * 0.10))
+        ..addOval(Rect.fromCenter(
+            center: Offset(w * 0.82, h * 0.32),
+            width: w * 0.18,
+            height: h * 0.10)),
+    );
 
-    // 腹 (腹直筋)
-    _draw(canvas, 'core', Path()
-      ..moveTo(w * 0.30, h * 0.31)
-      ..cubicTo(w * 0.26, h * 0.36, w * 0.26, h * 0.44, w * 0.30, h * 0.48)
-      ..cubicTo(w * 0.36, h * 0.50, w * 0.64, h * 0.50, w * 0.70, h * 0.48)
-      ..cubicTo(w * 0.74, h * 0.44, w * 0.74, h * 0.36, w * 0.70, h * 0.31)
-      ..close());
+    // 腹 (核心・お腹のまるい部分)
+    _drawMuscle(
+      canvas,
+      'core',
+      Path()
+        ..addOval(Rect.fromCenter(
+            center: Offset(w * 0.5, h * 0.50),
+            width: w * 0.32,
+            height: h * 0.16)),
+    );
 
-    // 上腕二頭筋
-    _draw(canvas, 'biceps', Path()
-      ..addOval(Rect.fromCenter(
-          center: Offset(w * 0.14, h * 0.33), width: w * 0.11, height: h * 0.14))
-      ..addOval(Rect.fromCenter(
-          center: Offset(w * 0.86, h * 0.33), width: w * 0.11, height: h * 0.14)));
+    // 上腕二頭筋 (両腕の上半分に丸く)
+    _drawMuscle(
+      canvas,
+      'biceps',
+      Path()
+        ..addOval(Rect.fromCenter(
+            center: Offset(w * 0.16, h * 0.40),
+            width: w * 0.13,
+            height: h * 0.13))
+        ..addOval(Rect.fromCenter(
+            center: Offset(w * 0.84, h * 0.40),
+            width: w * 0.13,
+            height: h * 0.13)),
+    );
 
-    // 前腕 (ニュートラル固定)
-    final forearm = Path()
-      ..addOval(Rect.fromCenter(
-          center: Offset(w * 0.14, h * 0.46), width: w * 0.10, height: h * 0.11))
-      ..addOval(Rect.fromCenter(
-          center: Offset(w * 0.86, h * 0.46), width: w * 0.10, height: h * 0.11));
-    canvas.drawPath(forearm, _skin);
-    canvas.drawPath(forearm, _stroke);
-
-    // 大腿四頭筋
+    // 大腿四頭筋 (両脚の上半分)
     final quads = Path();
     for (final xDir in [-1.0, 1.0]) {
-      final cx = w * (0.5 + xDir * 0.135);
-      quads
-        ..moveTo(cx - w * 0.09, h * 0.50)
-        ..cubicTo(cx - w * 0.11, h * 0.58, cx - w * 0.10, h * 0.67,
-            cx - w * 0.08, h * 0.72)
-        ..cubicTo(cx, h * 0.74, cx + w * 0.08, h * 0.72, cx + w * 0.08, h * 0.72)
-        ..cubicTo(cx + w * 0.10, h * 0.67, cx + w * 0.11, h * 0.58,
-            cx + w * 0.09, h * 0.50)
-        ..close();
+      final cx = w * (0.5 + xDir * 0.16);
+      quads.addOval(Rect.fromCenter(
+        center: Offset(cx, h * 0.71),
+        width: w * 0.16,
+        height: h * 0.18,
+      ));
     }
-    _draw(canvas, 'quads', quads);
+    _drawMuscle(canvas, 'quads', quads);
 
-    // 下腿 (前脛骨筋)
-    _draw(canvas, 'calves', Path()
-      ..addOval(Rect.fromCenter(
-          center: Offset(w * 0.365, h * 0.82), width: w * 0.13, height: h * 0.14))
-      ..addOval(Rect.fromCenter(
-          center: Offset(w * 0.635, h * 0.82), width: w * 0.13, height: h * 0.14)));
+    // ふくらはぎ前面 (両脚の下半分)
+    _drawMuscle(
+      canvas,
+      'calves',
+      Path()
+        ..addOval(Rect.fromCenter(
+            center: Offset(w * 0.34, h * 0.88),
+            width: w * 0.14,
+            height: h * 0.12))
+        ..addOval(Rect.fromCenter(
+            center: Offset(w * 0.66, h * 0.88),
+            width: w * 0.14,
+            height: h * 0.12)),
+    );
   }
 
+  // ── 背面: 後ろから見た熊。同じ胴体に背中側の部位を重ねる ─────────
   void _drawBack(Canvas canvas, double w, double h) {
-    // 僧帽筋 (上部菱形)
-    _draw(canvas, 'traps', Path()
-      ..moveTo(w * 0.50, h * 0.155)
-      ..cubicTo(w * 0.38, h * 0.155, w * 0.24, h * 0.16, w * 0.18, h * 0.20)
-      ..cubicTo(w * 0.22, h * 0.24, w * 0.34, h * 0.245, w * 0.50, h * 0.225)
-      ..cubicTo(w * 0.66, h * 0.245, w * 0.78, h * 0.24, w * 0.82, h * 0.20)
-      ..cubicTo(w * 0.76, h * 0.16, w * 0.62, h * 0.155, w * 0.50, h * 0.155)
-      ..close());
+    // 僧帽筋 (上背中央の丸い肩こり部分)
+    _drawMuscle(
+      canvas,
+      'traps',
+      Path()
+        ..addRRect(RRect.fromRectAndRadius(
+          Rect.fromLTRB(w * 0.30, h * 0.30, w * 0.70, h * 0.38),
+          Radius.circular(w * 0.05),
+        )),
+    );
 
-    // 広背筋 (V字翼)
-    _draw(canvas, 'back', Path()
-      ..moveTo(w * 0.50, h * 0.225)
-      ..cubicTo(w * 0.50, h * 0.27, w * 0.30, h * 0.29, w * 0.18, h * 0.27)
-      ..cubicTo(w * 0.14, h * 0.31, w * 0.18, h * 0.39, w * 0.26, h * 0.45)
-      ..cubicTo(w * 0.34, h * 0.48, w * 0.46, h * 0.47, w * 0.50, h * 0.455)
-      ..close()
-      ..moveTo(w * 0.50, h * 0.225)
-      ..cubicTo(w * 0.50, h * 0.27, w * 0.70, h * 0.29, w * 0.82, h * 0.27)
-      ..cubicTo(w * 0.86, h * 0.31, w * 0.82, h * 0.39, w * 0.74, h * 0.45)
-      ..cubicTo(w * 0.66, h * 0.48, w * 0.54, h * 0.47, w * 0.50, h * 0.455)
-      ..close());
+    // 広背筋 (V字翼を控えめに・胴体に収まるサイズ)
+    _drawMuscle(
+      canvas,
+      'back',
+      Path()
+        ..addRRect(RRect.fromRectAndRadius(
+          Rect.fromLTRB(w * 0.28, h * 0.38, w * 0.72, h * 0.55),
+          Radius.circular(w * 0.06),
+        )),
+    );
 
     // 肩 (三角筋後部)
-    _draw(canvas, 'shoulders', Path()
-      ..addOval(Rect.fromCenter(
-          center: Offset(w * 0.18, h * 0.185), width: w * 0.16, height: h * 0.10))
-      ..addOval(Rect.fromCenter(
-          center: Offset(w * 0.82, h * 0.185), width: w * 0.16, height: h * 0.10)));
+    _drawMuscle(
+      canvas,
+      'shoulders',
+      Path()
+        ..addOval(Rect.fromCenter(
+            center: Offset(w * 0.18, h * 0.32),
+            width: w * 0.18,
+            height: h * 0.10))
+        ..addOval(Rect.fromCenter(
+            center: Offset(w * 0.82, h * 0.32),
+            width: w * 0.18,
+            height: h * 0.10)),
+    );
 
-    // 上腕三頭筋
-    _draw(canvas, 'triceps', Path()
-      ..addOval(Rect.fromCenter(
-          center: Offset(w * 0.14, h * 0.33), width: w * 0.11, height: h * 0.14))
-      ..addOval(Rect.fromCenter(
-          center: Offset(w * 0.86, h * 0.33), width: w * 0.11, height: h * 0.14)));
+    // 上腕三頭筋 (両腕の上半分)
+    _drawMuscle(
+      canvas,
+      'triceps',
+      Path()
+        ..addOval(Rect.fromCenter(
+            center: Offset(w * 0.16, h * 0.40),
+            width: w * 0.13,
+            height: h * 0.13))
+        ..addOval(Rect.fromCenter(
+            center: Offset(w * 0.84, h * 0.40),
+            width: w * 0.13,
+            height: h * 0.13)),
+    );
 
-    // 臀筋
-    _draw(canvas, 'glutes', Path()
-      ..moveTo(w * 0.22, h * 0.455)
-      ..cubicTo(w * 0.18, h * 0.49, w * 0.20, h * 0.57, w * 0.30, h * 0.59)
-      ..cubicTo(w * 0.40, h * 0.61, w * 0.60, h * 0.61, w * 0.70, h * 0.59)
-      ..cubicTo(w * 0.80, h * 0.57, w * 0.82, h * 0.49, w * 0.78, h * 0.455)
-      ..close());
+    // 臀筋 (お尻の丸み)
+    _drawMuscle(
+      canvas,
+      'glutes',
+      Path()
+        ..addOval(Rect.fromCenter(
+            center: Offset(w * 0.36, h * 0.59),
+            width: w * 0.18,
+            height: h * 0.10))
+        ..addOval(Rect.fromCenter(
+            center: Offset(w * 0.64, h * 0.59),
+            width: w * 0.18,
+            height: h * 0.10)),
+    );
 
-    // ハムストリング
+    // ハムストリング (両脚の上半分)
     final hams = Path();
     for (final xDir in [-1.0, 1.0]) {
-      final cx = w * (0.5 + xDir * 0.135);
-      hams
-        ..moveTo(cx - w * 0.09, h * 0.60)
-        ..cubicTo(cx - w * 0.10, h * 0.67, cx - w * 0.09, h * 0.72,
-            cx - w * 0.07, h * 0.74)
-        ..cubicTo(cx + w * 0.07, h * 0.74, cx + w * 0.09, h * 0.72,
-            cx + w * 0.10, h * 0.67)
-        ..cubicTo(cx + w * 0.09, h * 0.60, cx + w * 0.09, h * 0.60,
-            cx - w * 0.09, h * 0.60)
-        ..close();
+      final cx = w * (0.5 + xDir * 0.16);
+      hams.addOval(Rect.fromCenter(
+        center: Offset(cx, h * 0.71),
+        width: w * 0.16,
+        height: h * 0.18,
+      ));
     }
-    _draw(canvas, 'hamstrings', hams);
+    _drawMuscle(canvas, 'hamstrings', hams);
 
-    // ふくらはぎ (腓腹筋二頭)
-    final calves = Path();
-    for (final xDir in [-1.0, 1.0]) {
-      final cx = w * (0.5 + xDir * 0.135);
-      calves
+    // ふくらはぎ (腓腹筋)
+    _drawMuscle(
+      canvas,
+      'calves',
+      Path()
         ..addOval(Rect.fromCenter(
-            center: Offset(cx - w * 0.03, h * 0.81),
-            width: w * 0.08, height: h * 0.12))
+            center: Offset(w * 0.34, h * 0.88),
+            width: w * 0.14,
+            height: h * 0.12))
         ..addOval(Rect.fromCenter(
-            center: Offset(cx + w * 0.03, h * 0.81),
-            width: w * 0.08, height: h * 0.12));
-    }
-    _draw(canvas, 'calves', calves);
+            center: Offset(w * 0.66, h * 0.88),
+            width: w * 0.14,
+            height: h * 0.12)),
+    );
   }
 
   @override
