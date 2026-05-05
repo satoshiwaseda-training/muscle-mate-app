@@ -80,49 +80,66 @@ class _Hotspot {
 const Size _frontImageSize = Size(659, 1234);
 const Size _backImageSize = Size(1122, 1402);
 
+// 前面の熊画像 (659×1234) における各筋肉の位置 (正規化 0-1)。
+// 画像内の色付きオーバル群と重なるよう調整済み。
 const Map<String, List<_Hotspot>> _frontHotspots = {
-  'chest': [_Hotspot(0.50, 0.36, 0.42, 0.10)],
+  // 胸 (タンクトップの上部に見えるピンクの蝶型)
+  'chest': [_Hotspot(0.50, 0.36, 0.36, 0.09)],
+  // 肩 (左右の肩の付け根のオレンジオーバル)
   'shoulders': [
-    _Hotspot(0.20, 0.36, 0.13, 0.09),
-    _Hotspot(0.80, 0.36, 0.13, 0.09),
+    _Hotspot(0.21, 0.37, 0.10, 0.08),
+    _Hotspot(0.79, 0.37, 0.10, 0.08),
   ],
+  // 上腕二頭筋 (両腕外側のピンクオーバル)
   'biceps': [
-    _Hotspot(0.13, 0.46, 0.12, 0.11),
-    _Hotspot(0.87, 0.46, 0.12, 0.11),
+    _Hotspot(0.11, 0.50, 0.10, 0.10),
+    _Hotspot(0.89, 0.50, 0.10, 0.10),
   ],
-  'core': [_Hotspot(0.50, 0.62, 0.28, 0.12)],
+  // 腹直筋 (タンクトップの下部から見える黄色 6 パック)
+  'core': [_Hotspot(0.50, 0.57, 0.17, 0.11)],
+  // 大腿四頭筋 (両太もも内側の青オーバル)
   'quads': [
-    _Hotspot(0.36, 0.79, 0.13, 0.13),
-    _Hotspot(0.64, 0.79, 0.13, 0.13),
+    _Hotspot(0.38, 0.79, 0.13, 0.10),
+    _Hotspot(0.62, 0.79, 0.13, 0.10),
   ],
+  // ふくらはぎ (両ふくらはぎの紫オーバル)
   'calves': [
-    _Hotspot(0.34, 0.92, 0.10, 0.07),
-    _Hotspot(0.66, 0.92, 0.10, 0.07),
+    _Hotspot(0.36, 0.91, 0.09, 0.06),
+    _Hotspot(0.64, 0.91, 0.09, 0.06),
   ],
 };
 
+// 背面の熊画像 (1122×1402) における各筋肉の位置 (正規化 0-1)。
+// 背面画像は左右に余白がある (アスペクト 0.800) ため横位置は中央寄り。
 const Map<String, List<_Hotspot>> _backHotspots = {
-  'traps': [_Hotspot(0.50, 0.40, 0.40, 0.06)],
-  'back': [_Hotspot(0.50, 0.55, 0.34, 0.16)],
+  // 僧帽筋 (タンクトップ上部に見えるピンクの帯)
+  'traps': [_Hotspot(0.50, 0.36, 0.20, 0.04)],
+  // 広背筋・脊柱起立筋 (タンク中央の 2 本の縦長黄色)
+  'back': [_Hotspot(0.50, 0.50, 0.10, 0.13)],
+  // 肩 (左右肩の付け根のオレンジオーバル)
   'shoulders': [
-    _Hotspot(0.20, 0.39, 0.13, 0.09),
-    _Hotspot(0.80, 0.39, 0.13, 0.09),
+    _Hotspot(0.30, 0.36, 0.07, 0.06),
+    _Hotspot(0.70, 0.36, 0.07, 0.06),
   ],
+  // 上腕三頭筋 (両腕外側のピンクオーバル)
   'triceps': [
-    _Hotspot(0.13, 0.49, 0.12, 0.13),
-    _Hotspot(0.87, 0.49, 0.12, 0.13),
+    _Hotspot(0.25, 0.47, 0.07, 0.10),
+    _Hotspot(0.75, 0.47, 0.07, 0.10),
   ],
+  // 臀筋 (ショーツに隠れているが部位指定として残す)
   'glutes': [
-    _Hotspot(0.40, 0.66, 0.10, 0.06),
-    _Hotspot(0.60, 0.66, 0.10, 0.06),
+    _Hotspot(0.43, 0.65, 0.07, 0.04),
+    _Hotspot(0.57, 0.65, 0.07, 0.04),
   ],
+  // ハムストリング (両太もも裏の青オーバル)
   'hamstrings': [
-    _Hotspot(0.36, 0.78, 0.13, 0.13),
-    _Hotspot(0.64, 0.78, 0.13, 0.13),
+    _Hotspot(0.42, 0.76, 0.09, 0.09),
+    _Hotspot(0.58, 0.76, 0.09, 0.09),
   ],
+  // ふくらはぎ (両ふくらはぎの紫オーバル)
   'calves': [
-    _Hotspot(0.34, 0.92, 0.10, 0.07),
-    _Hotspot(0.66, 0.92, 0.10, 0.07),
+    _Hotspot(0.40, 0.88, 0.07, 0.05),
+    _Hotspot(0.60, 0.88, 0.07, 0.05),
   ],
 };
 
@@ -327,10 +344,20 @@ class _MuscleOverlayPainter extends CustomPainter {
       offsetY = (size.height - renderedH) / 2;
     }
 
+    // 訓練済みの筋肉だけを薄いピンクで強調する。
+    // 未訓練の部位には何も描かない (イラストをそのまま見せる)。
+    const pinkBase = Color(0xFFFFB7CB); // 薄いピンク
     final hotspots = showFront ? _frontHotspots : _backHotspots;
     for (final entry in hotspots.entries) {
       final key = entry.key;
       final level = _toLevel(intensities[key] ?? 0.0);
+      if (level == 0) continue; // 鍛えていない部位は無加工
+
+      // 強度に応じてピンクの濃さと光のサイズを変える
+      final alpha = level == 1 ? 0.45 : level == 2 ? 0.65 : 0.85;
+      final blur = level == 3 ? 9.0 : 6.0;
+      final inflate = level == 3 ? 6.0 : 3.0;
+
       for (final hs in entry.value) {
         final rect = Rect.fromCenter(
           center: Offset(
@@ -340,20 +367,10 @@ class _MuscleOverlayPainter extends CustomPainter {
           width: hs.w * renderedW,
           height: hs.h * renderedH,
         );
-        if (level == 0) {
-          // 未訓練: 暗いソフトオーバル
-          final paint = Paint()
-            ..color = const Color(0xFF101719).withValues(alpha: 0.65)
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-          canvas.drawOval(rect.inflate(2), paint);
-        } else if (level >= 3) {
-          // 高強度: 周囲にオレンジのグロー (イラストの色は維持)
-          final glow = Paint()
-            ..color = AppColors.primary.withValues(alpha: 0.55)
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-          canvas.drawOval(rect.inflate(4), glow);
-        }
-        // level 1-2 はオーバーレイなし (イラストそのままで OK)
+        final paint = Paint()
+          ..color = pinkBase.withValues(alpha: alpha)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, blur);
+        canvas.drawOval(rect.inflate(inflate), paint);
       }
     }
   }
