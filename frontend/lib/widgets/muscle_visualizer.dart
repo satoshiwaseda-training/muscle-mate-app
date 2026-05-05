@@ -353,9 +353,9 @@ class _MuscleOverlayPainter extends CustomPainter {
       offsetY = (size.height - renderedH) / 2;
     }
 
-    // 訓練済みの筋肉だけを薄いピンクで強調する。
+    // 訓練済みの筋肉だけをピンクで強調する。
     // 未訓練の部位には何も描かない (イラストをそのまま見せる)。
-    const pinkBase = Color(0xFFFFB7CB); // 薄いピンク
+    const pinkBase = Color(0xFFFF6B9D); // 視認性のあるピンク（少し濃いめ）
     final hotspots = showFront ? _frontHotspots : _backHotspots;
     for (final entry in hotspots.entries) {
       final key = entry.key;
@@ -365,7 +365,7 @@ class _MuscleOverlayPainter extends CustomPainter {
       // 強度に応じてピンクの濃さと光のサイズを変える。
       // ホットスポット自体を画像のオーバルに合わせて細めにしているため、
       // inflate は最小限に抑えて滲みを抑制する。
-      final alpha = level == 1 ? 0.50 : level == 2 ? 0.70 : 0.90;
+      final alpha = level == 1 ? 0.65 : level == 2 ? 0.85 : 1.00;
       final blur = level == 3 ? 5.0 : 3.5;
       final inflate = level == 3 ? 1.5 : 0.0;
 
