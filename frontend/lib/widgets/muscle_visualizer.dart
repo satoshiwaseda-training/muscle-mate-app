@@ -3,10 +3,9 @@
 // v5 変更点:
 //   - 自作の CustomPaint を撤廃し、ホーム画面と同じテイストの熊イラスト
 //     (assets/ui/visualizer/bear_front.png / bear_back.png) をベースにする
-//   - 訓練済みの筋肉 (level >= 1) → イラストの色が見える
-//   - 未訓練の筋肉 (level 0) → そのホットスポットに暗いソフトオーバーレイを
-//     被せて「今日は触れていない」と表現
-//   - 高強度 (level 3) → 周囲にオレンジのグロー
+//   - 訓練済みの筋肉 (level >= 1) → ピンクのソフトオーバーレイで強調
+//   - 未訓練の筋肉 (level 0) → 何も描かず、熊イラストをそのまま見せる
+//   - 前面 / 背面それぞれに存在する部位だけを描画する
 // ─────────────────────────────────────────────────────────────────────────────
 import 'package:flutter/material.dart';
 import '../main.dart' show AppColors;
@@ -16,34 +15,44 @@ import '../main.dart' show AppColors;
 // ─────────────────────────────────────────────────────────────────────────────
 
 const Map<String, List<String>> _muscleAliases = {
-  'chest':      ['chest'],
-  'back':       ['back', 'traps'],
-  'shoulders':  ['shoulders'],
-  'biceps':     ['biceps'],
-  'triceps':    ['triceps'],
-  'legs':       ['quads', 'hamstrings'],
-  'quads':      ['quads'],
+  'chest': ['chest'],
+  'back': ['back'],
+  'shoulders': ['shoulders'],
+  'biceps': ['biceps'],
+  'triceps': ['triceps'],
+  'legs': ['quads', 'hamstrings'],
+  'quads': ['quads'],
   'hamstrings': ['hamstrings'],
-  'glutes':     ['glutes'],
-  'calves':     ['calves'],
-  'core':       ['core'],
-  'traps':      ['traps'],
-  'full_body':  ['chest','back','traps','shoulders','biceps','triceps',
-                 'quads','hamstrings','glutes','core'],
+  'glutes': ['glutes'],
+  'calves': ['calves'],
+  'core': ['core'],
+  'traps': ['traps'],
+  'full_body': [
+    'chest',
+    'back',
+    'traps',
+    'shoulders',
+    'biceps',
+    'triceps',
+    'quads',
+    'hamstrings',
+    'glutes',
+    'core'
+  ],
 };
 
 const Map<String, String> _muscleJpNames = {
-  'chest':      '胸',
-  'back':       '広背筋',
-  'traps':      '僧帽筋',
-  'shoulders':  '肩',
-  'biceps':     '上腕二頭',
-  'triceps':    '上腕三頭',
-  'quads':      '大腿四頭',
+  'chest': '胸',
+  'back': '広背筋',
+  'traps': '僧帽筋',
+  'shoulders': '肩',
+  'biceps': '上腕二頭',
+  'triceps': '上腕三頭',
+  'quads': '大腿四頭',
   'hamstrings': 'ハムスト',
-  'glutes':     '臀筋',
-  'calves':     '下腿',
-  'core':       '腹',
+  'glutes': '臀筋',
+  'calves': '下腿',
+  'core': '腹',
 };
 
 Set<String> _resolve(List<String> muscles) {
@@ -77,79 +86,82 @@ class _Hotspot {
 
 // 実際に保存されたイラストの自然サイズ。
 // _MuscleOverlayPainter で BoxFit.contain の実描画領域を計算するために使う。
-const Size _frontImageSize = Size(633, 959);
-const Size _backImageSize = Size(655, 1133);
+const Size _frontImageSize = Size(1024, 1536);
+const Size _backImageSize = Size(1023, 1537);
 
-// 前面の熊画像 (633×959) における各筋肉の位置 (正規化 0-1)。
+// 前面の熊画像 (1024×1536) における各筋肉の位置 (正規化 0-1)。
 // クリーンな白熊イラストに対して解剖学的に対応する位置を指定。
 const Map<String, List<_Hotspot>> _frontHotspots = {
   // 胸 (タンクトップ上部の左右の大胸筋)
   'chest': [
-    _Hotspot(0.40, 0.45, 0.13, 0.08),
-    _Hotspot(0.60, 0.45, 0.13, 0.08),
+    _Hotspot(0.43, 0.45, 0.10, 0.07),
+    _Hotspot(0.57, 0.45, 0.10, 0.07),
   ],
   // 肩 (左右の三角筋)
   'shoulders': [
-    _Hotspot(0.20, 0.43, 0.09, 0.07),
-    _Hotspot(0.80, 0.43, 0.09, 0.07),
+    _Hotspot(0.33, 0.44, 0.08, 0.07),
+    _Hotspot(0.67, 0.44, 0.08, 0.07),
   ],
-  // 上腕二頭筋 (両腕の外側)
+  // 上腕二頭筋 (前面の両上腕)
   'biceps': [
-    _Hotspot(0.10, 0.53, 0.08, 0.10),
-    _Hotspot(0.90, 0.53, 0.08, 0.10),
+    _Hotspot(0.31, 0.54, 0.08, 0.13),
+    _Hotspot(0.69, 0.54, 0.08, 0.13),
   ],
   // 腹直筋 (タンクトップ下部の M ロゴの下)
-  'core': [_Hotspot(0.50, 0.61, 0.16, 0.07)],
+  'core': [_Hotspot(0.50, 0.57, 0.16, 0.08)],
   // 大腿四頭筋 (両太もも前面)
   'quads': [
-    _Hotspot(0.38, 0.79, 0.11, 0.09),
-    _Hotspot(0.62, 0.79, 0.11, 0.09),
+    _Hotspot(0.43, 0.70, 0.11, 0.11),
+    _Hotspot(0.57, 0.70, 0.11, 0.11),
   ],
   // ふくらはぎ (両下腿)
   'calves': [
-    _Hotspot(0.38, 0.92, 0.08, 0.06),
-    _Hotspot(0.62, 0.92, 0.08, 0.06),
+    _Hotspot(0.42, 0.83, 0.08, 0.10),
+    _Hotspot(0.58, 0.83, 0.08, 0.10),
   ],
 };
 
-// 背面の熊画像 (655×1133) における各筋肉の位置 (正規化 0-1)。
+// 背面の熊画像 (1023×1537) における各筋肉の位置 (正規化 0-1)。
 const Map<String, List<_Hotspot>> _backHotspots = {
   // 僧帽筋 (タンクトップ上部・左右に分割)
   'traps': [
-    _Hotspot(0.42, 0.40, 0.10, 0.04),
-    _Hotspot(0.58, 0.40, 0.10, 0.04),
+    _Hotspot(0.43, 0.39, 0.09, 0.05),
+    _Hotspot(0.57, 0.39, 0.09, 0.05),
   ],
   // 広背筋 (タンク中央の左右に拡がる V 字)
   'back': [
-    _Hotspot(0.40, 0.52, 0.10, 0.10),
-    _Hotspot(0.60, 0.52, 0.10, 0.10),
+    _Hotspot(0.42, 0.50, 0.10, 0.13),
+    _Hotspot(0.58, 0.50, 0.10, 0.13),
   ],
   // 肩 (左右の三角筋後部)
   'shoulders': [
-    _Hotspot(0.20, 0.43, 0.09, 0.07),
-    _Hotspot(0.80, 0.43, 0.09, 0.07),
+    _Hotspot(0.31, 0.44, 0.08, 0.07),
+    _Hotspot(0.69, 0.44, 0.08, 0.07),
   ],
-  // 上腕三頭筋 (両腕の外側)
+  // 上腕三頭筋 (背面の両上腕)
   'triceps': [
-    _Hotspot(0.10, 0.53, 0.08, 0.10),
-    _Hotspot(0.90, 0.53, 0.08, 0.10),
+    _Hotspot(0.29, 0.57, 0.08, 0.15),
+    _Hotspot(0.71, 0.57, 0.08, 0.15),
   ],
   // 臀筋 (ショーツに隠れている部位として控えめに)
   'glutes': [
-    _Hotspot(0.42, 0.71, 0.08, 0.04),
-    _Hotspot(0.58, 0.71, 0.08, 0.04),
+    _Hotspot(0.44, 0.68, 0.08, 0.05),
+    _Hotspot(0.56, 0.68, 0.08, 0.05),
   ],
   // ハムストリング (両太もも裏)
   'hamstrings': [
-    _Hotspot(0.38, 0.79, 0.11, 0.09),
-    _Hotspot(0.62, 0.79, 0.11, 0.09),
+    _Hotspot(0.41, 0.77, 0.11, 0.12),
+    _Hotspot(0.59, 0.77, 0.11, 0.12),
   ],
   // ふくらはぎ (両下腿)
   'calves': [
-    _Hotspot(0.38, 0.92, 0.08, 0.06),
-    _Hotspot(0.62, 0.92, 0.08, 0.06),
+    _Hotspot(0.40, 0.90, 0.08, 0.10),
+    _Hotspot(0.60, 0.90, 0.08, 0.10),
   ],
 };
+
+Set<String> _visibleMuscleKeys(bool showFront) =>
+    showFront ? _frontHotspots.keys.toSet() : _backHotspots.keys.toSet();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MuscleVisualizer
@@ -205,11 +217,10 @@ class _MuscleVisualizerState extends State<MuscleVisualizer> {
                             ? 'assets/ui/visualizer/bear_front.png'
                             : 'assets/ui/visualizer/bear_back.png',
                         fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) =>
-                            const _BearImageMissing(),
+                        errorBuilder: (_, __, ___) => const _BearImageMissing(),
                       ),
                     ),
-                    // ── オーバーレイ: 未訓練に暗化 + 訓練にグロー ──
+                    // ── オーバーレイ: 訓練済み部位だけを面別にハイライト ──
                     Positioned.fill(
                       child: CustomPaint(
                         painter: _MuscleOverlayPainter(
@@ -312,9 +323,9 @@ class _BearImageMissing extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // _MuscleOverlayPainter
 //   熊イラストの上に重ねるオーバーレイ。
-//   - 未訓練 (level 0): 暗いソフトオーバル → 暗化
-//   - 訓練済み (level 1-2): 何もしない (イラストの色が見える)
-//   - 高強度 (level 3): 周囲にオレンジのグロー
+//   - 未訓練 (level 0): 何も描かない
+//   - 訓練済み (level 1-3): 強度に応じたピンクのソフトオーバル
+//   - showFront に応じて前面 / 背面のホットスポットだけを使う
 // ─────────────────────────────────────────────────────────────────────────────
 class _MuscleOverlayPainter extends CustomPainter {
   final Map<String, double> intensities;
@@ -364,7 +375,11 @@ class _MuscleOverlayPainter extends CustomPainter {
       // 強度に応じてピンクの濃さと光のサイズを変える。
       // ホットスポット自体を画像のオーバルに合わせて細めにしているため、
       // inflate は最小限に抑えて滲みを抑制する。
-      final alpha = level == 1 ? 0.65 : level == 2 ? 0.85 : 1.00;
+      final alpha = level == 1
+          ? 0.65
+          : level == 2
+              ? 0.85
+              : 1.00;
       final blur = level == 3 ? 5.0 : 3.5;
       final inflate = level == 3 ? 1.5 : 0.0;
 
@@ -403,14 +418,25 @@ class _AnalysisPanel extends StatelessWidget {
   });
 
   static const _priorityOrder = [
-    'chest', 'back', 'quads', 'hamstrings', 'glutes',
-    'shoulders', 'core', 'traps', 'biceps', 'triceps', 'calves',
+    'chest',
+    'back',
+    'quads',
+    'hamstrings',
+    'glutes',
+    'shoulders',
+    'core',
+    'traps',
+    'biceps',
+    'triceps',
+    'calves',
   ];
 
   @override
   Widget build(BuildContext context) {
     final activated = intensities.entries
-        .where((e) => _toLevel(e.value) > 0)
+        .where((e) =>
+            _visibleMuscleKeys(showFront).contains(e.key) &&
+            _toLevel(e.value) > 0)
         .toList()
       ..sort((a, b) {
         final v = b.value.compareTo(a.value);
@@ -421,12 +447,13 @@ class _AnalysisPanel extends StatelessWidget {
       });
 
     final primaryKey = _priorityOrder.firstWhere(
-      (k) => _toLevel(intensities[k] ?? 0.0) > 0,
+      (k) =>
+          _visibleMuscleKeys(showFront).contains(k) &&
+          _toLevel(intensities[k] ?? 0.0) > 0,
       orElse: () => '',
     );
-    final primaryName = primaryKey.isEmpty
-        ? '—'
-        : (_muscleJpNames[primaryKey] ?? primaryKey);
+    final primaryName =
+        primaryKey.isEmpty ? '—' : (_muscleJpNames[primaryKey] ?? primaryKey);
     final restHint = primaryKey.isEmpty
         ? '記録が増えると、次に休ませたい部位が見えてきます。'
         : '次回は$primaryNameを休ませるか、軽めにすると続けやすくなります。';
@@ -516,49 +543,6 @@ class _AnalysisPanel extends StatelessWidget {
         fontSize: 11,
         fontWeight: FontWeight.w700,
         letterSpacing: 0.5,
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Muscle row (compact list - retained for compatibility)
-// ─────────────────────────────────────────────────────────────────────────────
-class _MuscleRow extends StatelessWidget {
-  final String label;
-  final int level;
-  // ignore: unused_element_parameter
-  const _MuscleRow({required this.label, required this.level});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = [
-      const Color(0xFF1C1C20),
-      AppColors.primary.withValues(alpha: 0.28),
-      AppColors.primary.withValues(alpha: 0.62),
-      AppColors.primary,
-    ];
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: colors[level.clamp(0, 3)],
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 12,
-            ),
-          ),
-        ],
       ),
     );
   }
