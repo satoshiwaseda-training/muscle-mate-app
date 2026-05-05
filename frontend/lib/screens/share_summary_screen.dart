@@ -19,6 +19,9 @@ import 'package:share_plus/share_plus.dart';
 
 import '../main.dart' show AppColors;
 import '../services/local_storage_service.dart';
+// Web では blob+anchor で直接ダウンロード。モバイルではスタブ（呼ばれない）
+import '../services/web_download_stub.dart'
+    if (dart.library.html) '../services/web_download_web.dart';
 
 enum _SummaryRange { today, week, month }
 
@@ -220,12 +223,13 @@ class _ShareSummaryScreenState extends State<ShareSummaryScreen> {
           '${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.png';
 
       if (kIsWeb) {
-        await Share.shareXFiles(
-          [XFile.fromData(bytes, mimeType: 'image/png', name: fileName)],
-          text: '#MuscleMate でトレーニング記録中 💪',
-          fileNameOverrides: [fileName],
-        );
+        // Web: blob URL + 隠しアンカーで直接ダウンロード
+        // (share_plus の Web 実装は Web Share API に依存しており HTTPS 必須・
+        // ブラウザ依存のため、http://localhost:8080 でも確実に動く実装に切替)
+        await downloadBytesAsFile(bytes, fileName);
+        _toast('画像をダウンロードしました');
       } else {
+        // モバイル: 一時ファイル → Native Share Sheet
         final tempDir = await getTemporaryDirectory();
         final file = File('${tempDir.path}/$fileName');
         await file.writeAsBytes(bytes);
