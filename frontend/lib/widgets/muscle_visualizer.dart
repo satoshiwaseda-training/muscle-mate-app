@@ -67,18 +67,18 @@ int _toLevel(double intensity) {
 //   オーバーレイ (暗化 / グロー) を描画する範囲を決める。
 // ─────────────────────────────────────────────────────────────────────────────
 class _Hotspot {
+  /// 画像の自然座標系での 0.0〜1.0 正規化中心位置とサイズ
   final double cx;
   final double cy;
   final double w;
   final double h;
   const _Hotspot(this.cx, this.cy, this.w, this.h);
-
-  Rect toRect(double width, double height) => Rect.fromCenter(
-        center: Offset(cx * width, cy * height),
-        width: w * width,
-        height: h * height,
-      );
 }
+
+// 実際に保存されたイラストの自然サイズ。
+// _MuscleOverlayPainter で BoxFit.contain の実描画領域を計算するために使う。
+const Size _frontImageSize = Size(659, 1234);
+const Size _backImageSize = Size(1122, 1402);
 
 const Map<String, List<_Hotspot>> _frontHotspots = {
   'chest': [_Hotspot(0.50, 0.36, 0.42, 0.10)],
@@ -302,13 +302,44 @@ class _MuscleOverlayPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final hotspots = showFront ? _frontHotspots : _backHotspots;
+    // BoxFit.contain で画像が実際に描画される領域を計算する。
+    // ここで計算した rect 内でホットスポットを配置することで、
+    // 異なるアスペクト比の画像でも筋肉位置がイラストとずれない。
+    final imageSize = showFront ? _frontImageSize : _backImageSize;
+    final imageAspect = imageSize.width / imageSize.height;
+    final containerAspect = size.width / size.height;
 
+    final double renderedW;
+    final double renderedH;
+    final double offsetX;
+    final double offsetY;
+    if (imageAspect < containerAspect) {
+      // 画像の方が縦長 → 高さに合わせて描画
+      renderedH = size.height;
+      renderedW = size.height * imageAspect;
+      offsetX = (size.width - renderedW) / 2;
+      offsetY = 0;
+    } else {
+      // 画像の方が横長 → 幅に合わせて描画
+      renderedW = size.width;
+      renderedH = size.width / imageAspect;
+      offsetX = 0;
+      offsetY = (size.height - renderedH) / 2;
+    }
+
+    final hotspots = showFront ? _frontHotspots : _backHotspots;
     for (final entry in hotspots.entries) {
       final key = entry.key;
       final level = _toLevel(intensities[key] ?? 0.0);
       for (final hs in entry.value) {
-        final rect = hs.toRect(size.width, size.height);
+        final rect = Rect.fromCenter(
+          center: Offset(
+            offsetX + hs.cx * renderedW,
+            offsetY + hs.cy * renderedH,
+          ),
+          width: hs.w * renderedW,
+          height: hs.h * renderedH,
+        );
         if (level == 0) {
           // 未訓練: 暗いソフトオーバル
           final paint = Paint()
