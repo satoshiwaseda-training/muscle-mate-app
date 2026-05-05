@@ -39,68 +39,66 @@ class _ComparisonItem {
   });
 }
 
-/// 体重未入力時のフォールバック（成人男性平均）
-const double _fallbackBodyWeightKg = 65.0;
-
-/// 体重入力値からその人を含む比較リストを構築する
-List<_ComparisonItem> _buildComparisonItems(double? bodyWeightKg) {
-  return [
-    _ComparisonItem(
-      emoji: '💪',
-      name: 'あなた',
-      weightKg: bodyWeightKg ?? _fallbackBodyWeightKg,
-      counterUnit: '人',
-    ),
-    const _ComparisonItem(
-      emoji: '🦍',
-      name: 'ゴリラ',
-      weightKg: 160,
-      counterUnit: '頭',
-    ),
-    const _ComparisonItem(
-      emoji: '🐎',
-      name: 'ウマ',
-      weightKg: 500,
-      counterUnit: '頭',
-    ),
-    const _ComparisonItem(
-      emoji: '🚗',
-      name: 'クルマ',
-      weightKg: 1500,
-      counterUnit: '台',
-    ),
-    const _ComparisonItem(
-      emoji: '🐘',
-      name: 'ゾウ',
-      weightKg: 5000,
-      counterUnit: '頭',
-    ),
-    const _ComparisonItem(
-      emoji: '🚌',
-      name: 'バス',
-      weightKg: 12000,
-      counterUnit: '台',
-    ),
-    const _ComparisonItem(
-      emoji: '🐋',
-      name: 'クジラ',
-      weightKg: 30000,
-      counterUnit: '頭',
-    ),
-    const _ComparisonItem(
-      emoji: '✈️',
-      name: '飛行機',
-      weightKg: 80000,
-      counterUnit: '機',
-    ),
-    const _ComparisonItem(
-      emoji: '🚀',
-      name: 'ロケット',
-      weightKg: 500000,
-      counterUnit: '基',
-    ),
-  ];
-}
+/// 比較対象リスト（プライバシー配慮で「あなた」は除外）
+///
+/// 「あなた N 人分」表示は、SNS 投稿時にユーザー本人の体重が
+/// 逆算されてしまう（合計 kg ÷ 人数 = 体重）ため意図的に削除。
+const List<_ComparisonItem> _comparisonItems = [
+  _ComparisonItem(
+    emoji: '🐶',
+    name: '柴犬',
+    weightKg: 10,
+    counterUnit: '匹',
+  ),
+  _ComparisonItem(
+    emoji: '🦍',
+    name: 'ゴリラ',
+    weightKg: 160,
+    counterUnit: '頭',
+  ),
+  _ComparisonItem(
+    emoji: '🐎',
+    name: 'ウマ',
+    weightKg: 500,
+    counterUnit: '頭',
+  ),
+  _ComparisonItem(
+    emoji: '🚗',
+    name: 'クルマ',
+    weightKg: 1500,
+    counterUnit: '台',
+  ),
+  _ComparisonItem(
+    emoji: '🐘',
+    name: 'ゾウ',
+    weightKg: 5000,
+    counterUnit: '頭',
+  ),
+  _ComparisonItem(
+    emoji: '🚌',
+    name: 'バス',
+    weightKg: 12000,
+    counterUnit: '台',
+  ),
+  _ComparisonItem(
+    emoji: '🐋',
+    name: 'クジラ',
+    weightKg: 30000,
+    counterUnit: '頭',
+  ),
+  _ComparisonItem(
+    emoji: '✈️',
+    name: '飛行機',
+    weightKg: 80000,
+    counterUnit: '機',
+  ),
+  _ComparisonItem(
+    emoji: '🚀',
+    name: 'ロケット',
+    weightKg: 500000,
+    counterUnit: '基',
+  ),
+];
 
 /// 持ち上げた合計重量から、表示する 1〜2 件の比較を選ぶ。
 ///   ・「一番 1 に近いもの」= weight ≤ totalKg を満たす最大の物体
@@ -113,8 +111,8 @@ class _Selected {
 }
 
 ({_Selected? primary, _Selected? secondary, _Selected? aspiration})
-    _selectComparisons(double totalKg, double? bodyWeightKg) {
-  final items = _buildComparisonItems(bodyWeightKg);
+    _selectComparisons(double totalKg) {
+  const items = _comparisonItems;
 
   // weight ≤ totalKg を満たす最大インデックス
   var bigIdx = -1;
@@ -153,7 +151,6 @@ class _ShareSummaryScreenState extends State<ShareSummaryScreen> {
   final GlobalKey _cardKey = GlobalKey();
   _SummaryRange _range = _SummaryRange.week;
   ShareSummaryStats? _stats;
-  double? _bodyWeightKg;
   bool _processing = false;
 
   @override
@@ -164,11 +161,9 @@ class _ShareSummaryScreenState extends State<ShareSummaryScreen> {
 
   Future<void> _load() async {
     final stats = await LocalStorageService.buildShareSummary();
-    final settings = await LocalStorageService.loadSettings();
     if (!mounted) return;
     setState(() {
       _stats = stats;
-      _bodyWeightKg = (settings['body_weight_kg'] as num?)?.toDouble();
     });
   }
 
@@ -308,37 +303,6 @@ class _ShareSummaryScreenState extends State<ShareSummaryScreen> {
                     ),
                   ),
 
-                  // 体重未入力ヒント
-                  if (_bodyWeightKg == null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(10),
-                          border:
-                              Border.all(color: AppColors.border, width: 1),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.info_outline,
-                                size: 14, color: AppColors.textSecond),
-                            SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                '設定で体重を入れると「あなた何人分」がより正確になります',
-                                style: TextStyle(
-                                  color: AppColors.textSecond,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
                   // シェア用カード
                   Expanded(
                     child: SingleChildScrollView(
@@ -349,7 +313,6 @@ class _ShareSummaryScreenState extends State<ShareSummaryScreen> {
                           rangeShortLabel: _rangeShortLabel(),
                           stats: _currentSub(),
                           streak: _stats!.streak,
-                          bodyWeightKg: _bodyWeightKg,
                         ),
                       ),
                     ),
@@ -413,20 +376,18 @@ class _SummaryCard extends StatelessWidget {
   final String rangeShortLabel;
   final ShareSubStats stats;
   final int streak;
-  final double? bodyWeightKg;
 
   const _SummaryCard({
     required this.rangeShortLabel,
     required this.stats,
     required this.streak,
-    required this.bodyWeightKg,
   });
 
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
     final df = DateFormat('yyyy.MM.dd', 'ja');
-    final selection = _selectComparisons(stats.totalVolumeKg, bodyWeightKg);
+    final selection = _selectComparisons(stats.totalVolumeKg);
 
     return Container(
       width: double.infinity,
