@@ -11,9 +11,12 @@ import '../models/workout_record.dart';
 import '../services/api_service.dart';
 import '../services/evidence_index_service.dart';
 import '../services/local_storage_service.dart';
+import 'package:flutter/foundation.dart';
+
 import 'recovery_hub_screen.dart';
-import 'share_summary_screen.dart';
 import '../widgets/action_unlock_cards.dart';
+import '../widgets/share_card_view.dart';
+import '../services/share_action.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Grade
@@ -60,6 +63,7 @@ class _WorkoutResultScreenState extends State<WorkoutResultScreen>
   late double _maxHistoricalVolume;
   late int _lastSessionMomentumGain;
   bool _locallyUnlockedNextBestAction = false;
+
 
   // Post-workout advice cards
   List<AdviceCard> _adviceCards = const [];
@@ -974,21 +978,36 @@ class _WorkoutResultScreenState extends State<WorkoutResultScreen>
 
   // ── Home Button ─────────────────────────────────────────────────────────────
 
+  // 今日のセッション分のセット数
+  int get _todaySetCount => widget.record.sets.length;
+
+  // タップでシェアプレビューモーダルを開く。モーダル内のカードを RepaintBoundary
+  // でキャプチャ → Web ダウンロード or Native Share Sheet に渡す。
+  void _openShareModal() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _TodayShareSheet(
+        cardData: _ShareCardData(
+          totalVolumeKg: widget.record.totalVolume,
+          sessionCount: 1,
+          totalSets: _todaySetCount,
+          streak: _streak,
+        ),
+      ),
+    );
+  }
+
   Widget _buildHomeButton() {
     return Column(
       children: [
-        // 実績シェアボタン (v1.0 で追加)
+        // ── 実績シェアボタン（モーダルプレビューを開く）──────────────────
         SizedBox(
           width: double.infinity,
           height: 48,
           child: OutlinedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const ShareSummaryScreen()),
-              );
-            },
+            onPressed: _openShareModal,
             icon: const Icon(Icons.ios_share, size: 18),
             label: const Text(
               '今日の実績をシェアする',
@@ -1318,4 +1337,165 @@ class _ResultAccessState {
     required this.isPremium,
     required this.nextBestActionUnlocked,
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _ShareCardData
+//   モーダルへ渡す ShareCardView の構築データ
+// ─────────────────────────────────────────────────────────────────────────────
+class _ShareCardData {
+  final double totalVolumeKg;
+  final int sessionCount;
+  final int totalSets;
+  final int streak;
+  const _ShareCardData({
+    required this.totalVolumeKg,
+    required this.sessionCount,
+    required this.totalSets,
+    required this.streak,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _TodayShareSheet
+//   ワークアウト終了画面から開かれるシェアプレビュー兼アクションシート。
+//   - カードを表示してユーザーが内容を確認できる
+//   - 「ダウンロード／シェア」ボタンで RepaintBoundary を画像化 → 共有
+// ─────────────────────────────────────────────────────────────────────────────
+class _TodayShareSheet extends StatefulWidget {
+  final _ShareCardData cardData;
+  const _TodayShareSheet({required this.cardData});
+
+  @override
+  State<_TodayShareSheet> createState() => _TodayShareSheetState();
+}
+
+class _TodayShareSheetState extends State<_TodayShareSheet> {
+  final GlobalKey _cardKey = GlobalKey();
+  bool _processing = false;
+
+  Future<void> _share() async {
+    if (_processing) return;
+    setState(() => _processing = true);
+    await captureAndShareCard(
+      context: context,
+      boundaryKey: _cardKey,
+      fileNamePrefix: 'muscle_mate_today_result',
+    );
+    if (mounted) setState(() => _processing = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      minChildSize: 0.6,
+      maxChildSize: 0.95,
+      builder: (context, controller) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+        ),
+        child: Column(
+          children: [
+            // ドラッグハンドル
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 10, bottom: 4),
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // ヘッダー
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.ios_share,
+                      color: AppColors.primary, size: 18),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '今日の実績をシェア',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close,
+                        color: AppColors.textSecond),
+                    tooltip: '閉じる',
+                  ),
+                ],
+              ),
+            ),
+            // スクロール可能なカード本体
+            Expanded(
+              child: SingleChildScrollView(
+                controller: controller,
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                child: RepaintBoundary(
+                  key: _cardKey,
+                  child: ShareCardView(
+                    rangeShortLabel: 'TODAY',
+                    totalVolumeKg: widget.cardData.totalVolumeKg,
+                    sessionCount: widget.cardData.sessionCount,
+                    totalSets: widget.cardData.totalSets,
+                    streak: widget.cardData.streak,
+                  ),
+                ),
+              ),
+            ),
+            // 共有ボタン
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _processing ? null : _share,
+                    icon: _processing
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.ios_share),
+                    label: Text(
+                      _processing
+                          ? '画像を準備中...'
+                          : (kIsWeb
+                              ? '画像をダウンロード'
+                              : '画像を保存・シェア'),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
