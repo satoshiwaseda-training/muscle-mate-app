@@ -32,6 +32,7 @@ flutter:
     - assets/ui/menu_builder/
     - assets/ui/workout_session/
     - assets/ui/result/
+    - assets/ui/visualizer/
     # 論文メタデータインデックス（計画書 v5 §5.4 の限定スキーマ）
     # build_evidence_index.py で再生成。本文サマリは含めない
     - assets/evidence_index.json
