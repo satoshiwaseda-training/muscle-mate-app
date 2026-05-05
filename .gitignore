@@ -42,3 +42,4 @@ frontend/flutter-*.log
 *.backup
 *~
 
+frontend/assets/ui/visualizer/OLD/
