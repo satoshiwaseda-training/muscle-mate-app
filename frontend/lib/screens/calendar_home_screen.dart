@@ -370,7 +370,8 @@ class _CalendarHomeScreenState extends State<CalendarHomeScreen> {
               ),
               const SizedBox(height: 12),
               ListTile(
-                leading: const Icon(Icons.auto_fix_high, color: AppColors.primary),
+                leading:
+                    const Icon(Icons.auto_fix_high, color: AppColors.primary),
                 title: const Text('メニューを提案してもらう'),
                 subtitle: const Text('目的・体調に合わせて自動作成'),
                 onTap: () {
@@ -379,7 +380,8 @@ class _CalendarHomeScreenState extends State<CalendarHomeScreen> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.touch_app, color: AppColors.secondary),
+                leading:
+                    const Icon(Icons.touch_app, color: AppColors.secondary),
                 title: const Text('自分で部位・種目を選ぶ'),
                 subtitle: const Text('登録済み種目から選んで重量・回数を入力'),
                 onTap: () {
@@ -756,8 +758,7 @@ class _Header extends StatelessWidget {
           // ハンバーガーメニュー: タップで Drawer (サイドメニュー) を開く
           IconButton(
             onPressed: onMenuTap,
-            icon: const Icon(Icons.menu,
-                color: AppColors.textSecond, size: 28),
+            icon: const Icon(Icons.menu, color: AppColors.textSecond, size: 28),
             tooltip: 'メニューを開く',
             padding: const EdgeInsets.all(12),
           ),
@@ -1006,7 +1007,8 @@ class _WeeklyProgressCard extends StatelessWidget {
                     child: Text(
                       done ? '✓' : '${day.day}',
                       style: TextStyle(
-                        color: done ? AppColors.background : AppColors.textSecond,
+                        color:
+                            done ? AppColors.background : AppColors.textSecond,
                         fontSize: 15,
                         fontWeight: FontWeight.w900,
                       ),
@@ -1085,8 +1087,7 @@ class _FireCalendar extends StatelessWidget {
           dowTextFormatter: (date, _) => _weekdayLabels[date.weekday - 1],
           weekdayStyle:
               const TextStyle(color: AppColors.textSecond, fontSize: 12),
-          weekendStyle:
-              const TextStyle(color: AppColors.primary, fontSize: 12),
+          weekendStyle: const TextStyle(color: AppColors.primary, fontSize: 12),
         ),
         calendarStyle: CalendarStyle(
           outsideDaysVisible: false,
@@ -1337,7 +1338,9 @@ class _DayBottomSheet extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Text(
-                  isToday ? 'まだ記録がありません。\n体調に合わせて今日のメニューを作りましょう。' : 'この日の記録はありません',
+                  isToday
+                      ? 'まだ記録がありません。\n体調に合わせて今日のメニューを作りましょう。'
+                      : 'この日の記録はありません',
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: AppColors.textSecond),
                 ),
@@ -1345,6 +1348,7 @@ class _DayBottomSheet extends StatelessWidget {
             else
               ...records.map((r) => _RecordDetailCard(
                     record: r,
+                    onClose: () => Navigator.pop(context),
                     onDelete: () async {
                       await LocalStorageService.delete(r.id);
                       onRefresh();
@@ -1508,98 +1512,112 @@ class _HomeRecoveryState {
 
 class _RecordDetailCard extends StatelessWidget {
   final WorkoutRecord record;
+  final VoidCallback onClose;
   final VoidCallback onDelete;
-  const _RecordDetailCard({required this.record, required this.onDelete});
+  const _RecordDetailCard({
+    required this.record,
+    required this.onClose,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceHigh,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF3A3A3A)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── エンタメバナー ────────────────────────────────────
-          if (record.entertainment != null) ...[
-            EntertainmentBanner(data: record.entertainment!),
-            const SizedBox(height: 16),
-          ],
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onClose,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceHigh,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFF3A3A3A)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── エンタメバナー ────────────────────────────────────
+            if (record.entertainment != null) ...[
+              EntertainmentBanner(data: record.entertainment!),
+              const SizedBox(height: 16),
+            ],
 
-          // ── 筋肉ビジュアライザー ──────────────────────────────
-          if (record.trainedMuscles.isNotEmpty) ...[
-            const Text('ターゲット筋群',
+            // ── 筋肉ビジュアライザー ──────────────────────────────
+            if (record.trainedMuscles.isNotEmpty) ...[
+              const Text('ターゲット筋群',
+                  style: TextStyle(
+                      color: AppColors.textSecond,
+                      fontSize: 11,
+                      letterSpacing: 1)),
+              const SizedBox(height: 8),
+              MuscleVisualizer(
+                trainedMuscles: record.trainedMuscles,
+                contextLabel: record.planName,
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // ── セットサマリー ────────────────────────────────────
+            const Text('セット実績',
                 style: TextStyle(
                     color: AppColors.textSecond,
                     fontSize: 11,
                     letterSpacing: 1)),
             const SizedBox(height: 8),
-            MuscleVisualizer(trainedMuscles: record.trainedMuscles),
-            const SizedBox(height: 16),
-          ],
+            ...record.sets.map((s) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                          child: Text(s.exerciseName,
+                              style: const TextStyle(fontSize: 13))),
+                      Text(
+                        '${s.weightKg}kg × ${s.reps}回 = ${s.volume.toStringAsFixed(0)}kg',
+                        style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecond,
+                            fontFamily: 'monospace'),
+                      ),
+                    ],
+                  ),
+                )),
 
-          // ── セットサマリー ────────────────────────────────────
-          const Text('セット実績',
-              style: TextStyle(
-                  color: AppColors.textSecond, fontSize: 11, letterSpacing: 1)),
-          const SizedBox(height: 8),
-          ...record.sets.map((s) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                        child: Text(s.exerciseName,
-                            style: const TextStyle(fontSize: 13))),
-                    Text(
-                      '${s.weightKg}kg × ${s.reps}回 = ${s.volume.toStringAsFixed(0)}kg',
-                      style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecond,
-                          fontFamily: 'monospace'),
-                    ),
-                  ],
-                ),
-              )),
-
-          const SizedBox(height: 12),
-          const Divider(color: Colors.white12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('総挙上重量',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textSecond)),
-              Text(
-                '${record.totalVolume.toStringAsFixed(0)} kg',
-                style: const TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-          AppGradientButton(
-            onPressed: onDelete,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            borderRadius: BorderRadius.circular(AppColors.radiusS),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
+            const SizedBox(height: 12),
+            const Divider(color: Colors.white12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(Icons.delete_outline, size: 18),
-                SizedBox(width: 6),
-                Text('削除', style: TextStyle(fontSize: 13)),
+                const Text('総挙上重量',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textSecond)),
+                Text(
+                  '${record.totalVolume.toStringAsFixed(0)} kg',
+                  style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16),
+                ),
               ],
             ),
-          ),
-        ],
+
+            const SizedBox(height: 12),
+            AppGradientButton(
+              onPressed: onDelete,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              borderRadius: BorderRadius.circular(AppColors.radiusS),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.delete_outline, size: 18),
+                  SizedBox(width: 6),
+                  Text('削除', style: TextStyle(fontSize: 13)),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1675,8 +1693,7 @@ class _AppDrawer extends StatelessWidget {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const ShareSummaryScreen()),
+                  MaterialPageRoute(builder: (_) => const ShareSummaryScreen()),
                 );
               },
             ),
@@ -1699,8 +1716,7 @@ class _AppDrawer extends StatelessWidget {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const CitationsScreen()),
+                  MaterialPageRoute(builder: (_) => const CitationsScreen()),
                 );
               },
             ),
@@ -1725,8 +1741,7 @@ class _AppDrawer extends StatelessWidget {
                   context: context,
                   applicationName: 'Muscle Mate',
                   applicationVersion: 'v1.0.0',
-                  applicationLegalese:
-                      '© Muscle Musician\n\n筋トレをもっと気軽に楽しく\n'
+                  applicationLegalese: '© Muscle Musician\n\n筋トレをもっと気軽に楽しく\n'
                       'GitHub: github.com/satoshiwaseda-training/muscle-mate-app',
                 );
               },

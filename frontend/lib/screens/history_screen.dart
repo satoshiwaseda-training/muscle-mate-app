@@ -67,8 +67,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       firstDay: DateTime(2025, 1, 1),
                       lastDay: DateTime(2030, 12, 31),
                       focusedDay: _focusedDay,
-                      selectedDayPredicate: (d) =>
-                          isSameDay(d, _selectedDay),
+                      selectedDayPredicate: (d) => isSameDay(d, _selectedDay),
                       calendarStyle: CalendarStyle(
                         todayDecoration: BoxDecoration(
                           color: AppColors.primary.withValues(alpha: 0.5),
@@ -85,8 +84,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         outsideDaysVisible: false,
                       ),
                       headerStyle: const HeaderStyle(
-                          formatButtonVisible: false,
-                          titleCentered: true),
+                          formatButtonVisible: false, titleCentered: true),
                       eventLoader: (day) => _recordsForDay(day),
                       onDaySelected: (sel, foc) => setState(() {
                         _selectedDay = sel;
@@ -98,7 +96,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
                     // ── 選択日の記録 ──────────────────────────────────
                     if (selected.isNotEmpty)
-                      ...selected.map((r) => _RecordCard(record: r,
+                      ...selected.map((r) => _RecordCard(
+                          record: r,
                           onDelete: () async {
                             await LocalStorageService.delete(r.id);
                             _load();
@@ -119,7 +118,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                     // ── 全記録リスト ──────────────────────────────────
-                    ..._records.map((r) => _RecordCard(record: r,
+                    ..._records.map((r) => _RecordCard(
+                        record: r,
                         onDelete: () async {
                           await LocalStorageService.delete(r.id);
                           _load();
@@ -160,7 +160,10 @@ class _RecordCard extends StatelessWidget {
 
               // 筋肉ビジュアライザー
               if (record.trainedMuscles.isNotEmpty)
-                MuscleVisualizer(trainedMuscles: record.trainedMuscles),
+                MuscleVisualizer(
+                  trainedMuscles: record.trainedMuscles,
+                  contextLabel: record.planName,
+                ),
 
               const SizedBox(height: 16),
 
@@ -168,8 +171,8 @@ class _RecordCard extends StatelessWidget {
               TextButton.icon(
                 onPressed: onDelete,
                 icon: const Icon(Icons.delete_outline, color: Colors.red),
-                label: const Text('この記録を削除',
-                    style: TextStyle(color: Colors.red)),
+                label:
+                    const Text('この記録を削除', style: TextStyle(color: Colors.red)),
               ),
             ],
           ),

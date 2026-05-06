@@ -54,17 +54,23 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
 
     // 全セットを記録
     final sets = <SetRecord>[];
+    final trainedMuscles = <String>{};
     for (var i = 0; i < widget.session.exercises.length; i++) {
       final ex = widget.session.exercises[i];
+      var completedExercise = false;
       for (var j = 0; j < _inputs[i].length; j++) {
         final inp = _inputs[i][j];
         if (inp.completed && inp.weight > 0 && inp.reps > 0) {
+          completedExercise = true;
           sets.add(SetRecord(
             exerciseName: ex.nameJa,
             weightKg: inp.weight,
             reps: inp.reps,
           ));
         }
+      }
+      if (completedExercise) {
+        trainedMuscles.addAll(ex.targetMuscles);
       }
     }
 
@@ -75,8 +81,12 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
     final record = WorkoutRecord(
       id: now.toIso8601String(),
       date: now,
-      planName: widget.planName,
-      trainedMuscles: widget.session.targetMuscles.map((m) => m).toList(),
+      planName: widget.session.sessionName.trim().isEmpty
+          ? widget.planName
+          : widget.session.sessionName,
+      trainedMuscles: trainedMuscles.isEmpty
+          ? widget.session.targetMuscles.map((m) => m).toList()
+          : trainedMuscles.toList(),
       sets: sets,
       entertainment: ent,
     );

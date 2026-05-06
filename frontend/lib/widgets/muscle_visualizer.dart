@@ -2,8 +2,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // v5 変更点:
 //   - 自作の CustomPaint を撤廃し、ホーム画面と同じテイストの熊イラスト
-//     (assets/ui/visualizer/bear_front.png / bear_back.png) をベースにする
-//   - 訓練済みの筋肉 (level >= 1) → ピンクのソフトオーバーレイで強調
+//     (assets/ui/visualizer/bear_front_clean_20260505.png /
+//      bear_back_clean_20260505.png) をベースにする
+//   - 訓練済みの筋肉 (level >= 1) → オレンジのソフトオーバーレイで強調
 //   - 未訓練の筋肉 (level 0) → 何も描かず、熊イラストをそのまま見せる
 //   - 前面 / 背面それぞれに存在する部位だけを描画する
 // ─────────────────────────────────────────────────────────────────────────────
@@ -81,7 +82,8 @@ class _Hotspot {
   final double cy;
   final double w;
   final double h;
-  const _Hotspot(this.cx, this.cy, this.w, this.h);
+  final double angle;
+  const _Hotspot(this.cx, this.cy, this.w, this.h, [this.angle = 0.0]);
 }
 
 // 実際に保存されたイラストの自然サイズ。
@@ -94,30 +96,30 @@ const Size _backImageSize = Size(1023, 1537);
 const Map<String, List<_Hotspot>> _frontHotspots = {
   // 胸 (タンクトップ上部の左右の大胸筋)
   'chest': [
-    _Hotspot(0.43, 0.47, 0.09, 0.06),
-    _Hotspot(0.57, 0.47, 0.09, 0.06),
+    _Hotspot(0.455, 0.405, 0.085, 0.036),
+    _Hotspot(0.595, 0.405, 0.085, 0.036),
   ],
   // 肩 (左右の三角筋)
   'shoulders': [
-    _Hotspot(0.33, 0.42, 0.07, 0.06),
-    _Hotspot(0.67, 0.42, 0.07, 0.06),
+    _Hotspot(0.335, 0.395, 0.065, 0.044),
+    _Hotspot(0.730, 0.395, 0.065, 0.044),
   ],
   // 上腕二頭筋 (前面の両上腕)
   'biceps': [
-    _Hotspot(0.30, 0.53, 0.07, 0.12),
-    _Hotspot(0.70, 0.53, 0.07, 0.12),
+    _Hotspot(0.305, 0.485, 0.055, 0.076),
+    _Hotspot(0.745, 0.485, 0.055, 0.076),
   ],
   // 腹直筋 (タンクトップ下部の M ロゴの下)
-  'core': [_Hotspot(0.50, 0.59, 0.14, 0.08)],
+  'core': [_Hotspot(0.51, 0.535, 0.11, 0.048)],
   // 大腿四頭筋 (両太もも前面)
   'quads': [
-    _Hotspot(0.42, 0.70, 0.10, 0.11),
-    _Hotspot(0.58, 0.70, 0.10, 0.11),
+    _Hotspot(0.440, 0.665, 0.145, 0.074, -0.16),
+    _Hotspot(0.620, 0.665, 0.145, 0.074, 0.16),
   ],
   // ふくらはぎ (両下腿)
   'calves': [
-    _Hotspot(0.41, 0.83, 0.07, 0.09),
-    _Hotspot(0.59, 0.83, 0.07, 0.09),
+    _Hotspot(0.430, 0.705, 0.115, 0.044, -0.18),
+    _Hotspot(0.620, 0.705, 0.115, 0.044, 0.18),
   ],
 };
 
@@ -125,38 +127,38 @@ const Map<String, List<_Hotspot>> _frontHotspots = {
 const Map<String, List<_Hotspot>> _backHotspots = {
   // 僧帽筋 (タンクトップ上部・左右に分割)
   'traps': [
-    _Hotspot(0.43, 0.39, 0.08, 0.04),
-    _Hotspot(0.57, 0.39, 0.08, 0.04),
+    _Hotspot(0.430, 0.410, 0.070, 0.028),
+    _Hotspot(0.570, 0.410, 0.070, 0.028),
   ],
   // 広背筋 (タンク中央の左右に拡がる V 字)
   'back': [
-    _Hotspot(0.42, 0.50, 0.09, 0.12),
-    _Hotspot(0.58, 0.50, 0.09, 0.12),
+    _Hotspot(0.420, 0.490, 0.075, 0.080),
+    _Hotspot(0.580, 0.490, 0.075, 0.080),
   ],
   // 肩 (左右の三角筋後部)
   'shoulders': [
-    _Hotspot(0.31, 0.43, 0.07, 0.06),
-    _Hotspot(0.69, 0.43, 0.07, 0.06),
+    _Hotspot(0.330, 0.425, 0.065, 0.044),
+    _Hotspot(0.710, 0.425, 0.065, 0.044),
   ],
   // 上腕三頭筋 (背面の両上腕)
   'triceps': [
-    _Hotspot(0.29, 0.56, 0.07, 0.13),
-    _Hotspot(0.71, 0.56, 0.07, 0.13),
+    _Hotspot(0.290, 0.545, 0.055, 0.084),
+    _Hotspot(0.710, 0.545, 0.055, 0.084),
   ],
   // 臀筋 (ショーツに隠れている部位として控えめに)
   'glutes': [
-    _Hotspot(0.44, 0.67, 0.07, 0.04),
-    _Hotspot(0.56, 0.67, 0.07, 0.04),
+    _Hotspot(0.445, 0.665, 0.060, 0.028),
+    _Hotspot(0.565, 0.665, 0.060, 0.028),
   ],
   // ハムストリング (両太もも裏)
   'hamstrings': [
-    _Hotspot(0.41, 0.77, 0.10, 0.11),
-    _Hotspot(0.59, 0.77, 0.10, 0.11),
+    _Hotspot(0.410, 0.765, 0.095, 0.060),
+    _Hotspot(0.590, 0.765, 0.095, 0.060),
   ],
   // ふくらはぎ (両下腿)
   'calves': [
-    _Hotspot(0.40, 0.89, 0.07, 0.09),
-    _Hotspot(0.60, 0.89, 0.07, 0.09),
+    _Hotspot(0.400, 0.845, 0.070, 0.050),
+    _Hotspot(0.600, 0.845, 0.070, 0.050),
   ],
 };
 
@@ -169,11 +171,13 @@ Set<String> _visibleMuscleKeys(bool showFront) =>
 class MuscleVisualizer extends StatefulWidget {
   final List<String> trainedMuscles;
   final Map<String, double>? intensityMap;
+  final String? contextLabel;
 
   const MuscleVisualizer({
     super.key,
     required this.trainedMuscles,
     this.intensityMap,
+    this.contextLabel,
   });
 
   @override
@@ -184,8 +188,16 @@ class _MuscleVisualizerState extends State<MuscleVisualizer> {
   bool _showFront = true;
 
   Map<String, double> get _effectiveIntensity {
-    if (widget.intensityMap != null) return widget.intensityMap!;
-    final trained = _resolve(widget.trainedMuscles);
+    final trained = _focusedMusclesForDisplay(
+      widget.trainedMuscles,
+      widget.contextLabel,
+    );
+    if (widget.intensityMap != null) {
+      return {
+        for (final entry in widget.intensityMap!.entries)
+          entry.key: trained.contains(entry.key) ? entry.value : 0.0,
+      };
+    }
     return {
       for (final key in _muscleJpNames.keys)
         key: trained.contains(key) ? 1.0 : 0.0,
@@ -214,8 +226,8 @@ class _MuscleVisualizerState extends State<MuscleVisualizer> {
                     Positioned.fill(
                       child: Image.asset(
                         _showFront
-                            ? 'assets/ui/visualizer/bear_front.png'
-                            : 'assets/ui/visualizer/bear_back.png',
+                            ? 'assets/ui/visualizer/bear_front_clean_20260505.png'
+                            : 'assets/ui/visualizer/bear_back_clean_20260505.png',
                         fit: BoxFit.contain,
                         errorBuilder: (_, __, ___) => const _BearImageMissing(),
                       ),
@@ -289,6 +301,51 @@ class _MuscleVisualizerState extends State<MuscleVisualizer> {
   }
 }
 
+Set<String> _focusedMusclesForDisplay(
+  List<String> muscles,
+  String? contextLabel,
+) {
+  final trained = _resolve(muscles);
+  final label = contextLabel?.toLowerCase() ?? '';
+  if (label.isEmpty) return trained;
+
+  if (_hasAny(label, const ['全身', 'full body', 'full_body'])) {
+    return trained;
+  }
+  if (trained.contains('chest') &&
+      _hasAny(label, const ['胸', 'chest', 'bench', 'ベンチ'])) {
+    return {'chest'};
+  }
+  if (trained.contains('back') &&
+      _hasAny(label, const ['背中', '広背', 'back', 'row', 'pull', 'ロウ'])) {
+    return {'back'};
+  }
+  if (trained.contains('shoulders') &&
+      _hasAny(label, const ['肩', 'shoulder', 'press', 'プレス'])) {
+    return {'shoulders'};
+  }
+  if (trained.contains('biceps') &&
+      _hasAny(label, const ['二頭', 'biceps', 'curl', 'カール'])) {
+    return {'biceps'};
+  }
+  if (trained.contains('triceps') && _hasAny(label, const ['三頭', 'triceps'])) {
+    return {'triceps'};
+  }
+  if (_hasAny(label, const ['脚', '足', 'leg', 'legs', 'lower'])) {
+    final legMuscles =
+        trained.intersection({'quads', 'hamstrings', 'glutes', 'calves'});
+    if (legMuscles.isNotEmpty) return legMuscles;
+  }
+  if (trained.contains('core') &&
+      _hasAny(label, const ['腹', '体幹', 'core', 'abs'])) {
+    return {'core'};
+  }
+  return trained;
+}
+
+bool _hasAny(String text, List<String> needles) =>
+    needles.any((needle) => text.contains(needle.toLowerCase()));
+
 // ─────────────────────────────────────────────────────────────────────────────
 // _BearImageMissing
 //   画像アセット未配置時のフォールバック表示
@@ -307,7 +364,7 @@ class _BearImageMissing extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       child: const Center(
         child: Text(
-          '熊イラスト未配置\n\nassets/ui/visualizer/\n  bear_front.png\n  bear_back.png',
+          '熊イラスト未配置\n\nassets/ui/visualizer/\n  bear_front_clean_20260505.png\n  bear_back_clean_20260505.png',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: AppColors.textSecond,
@@ -324,7 +381,7 @@ class _BearImageMissing extends StatelessWidget {
 // _MuscleOverlayPainter
 //   熊イラストの上に重ねるオーバーレイ。
 //   - 未訓練 (level 0): 何も描かない
-//   - 訓練済み (level 1-3): 強度に応じたピンクのソフトオーバル
+//   - 訓練済み (level 1-3): 強度に応じたオレンジのソフトオーバル
 //   - showFront に応じて前面 / 背面のホットスポットだけを使う
 // ─────────────────────────────────────────────────────────────────────────────
 class _MuscleOverlayPainter extends CustomPainter {
@@ -363,16 +420,16 @@ class _MuscleOverlayPainter extends CustomPainter {
       offsetY = (size.height - renderedH) / 2;
     }
 
-    // 訓練済みの筋肉だけをピンクで強調する。
+    // 訓練済みの筋肉だけをオレンジで強調する。
     // 未訓練の部位には何も描かない (イラストをそのまま見せる)。
-    const pinkBase = Color(0xFFFF6B9D); // 視認性のあるピンク（少し濃いめ）
+    const highlightBase = Color(0xFFFF8A1C);
     final hotspots = showFront ? _frontHotspots : _backHotspots;
     for (final entry in hotspots.entries) {
       final key = entry.key;
       final level = _toLevel(intensities[key] ?? 0.0);
       if (level == 0) continue; // 鍛えていない部位は無加工
 
-      // 強度に応じてピンクの濃さと光のサイズを変える。
+      // 強度に応じてオレンジの濃さと光のサイズを変える。
       // ホットスポット自体を画像のオーバルに合わせて細めにしているため、
       // inflate は最小限に抑えて滲みを抑制する。
       final alpha = level == 1
@@ -384,18 +441,24 @@ class _MuscleOverlayPainter extends CustomPainter {
       final inflate = level == 3 ? 1.5 : 0.0;
 
       for (final hs in entry.value) {
+        final center = Offset(
+          offsetX + hs.cx * renderedW,
+          offsetY + hs.cy * renderedH,
+        );
         final rect = Rect.fromCenter(
-          center: Offset(
-            offsetX + hs.cx * renderedW,
-            offsetY + hs.cy * renderedH,
-          ),
+          center: Offset.zero,
           width: hs.w * renderedW,
           height: hs.h * renderedH,
         );
         final paint = Paint()
-          ..color = pinkBase.withValues(alpha: alpha)
+          ..color = highlightBase.withValues(alpha: alpha)
           ..maskFilter = MaskFilter.blur(BlurStyle.normal, blur);
-        canvas.drawOval(rect.inflate(inflate), paint);
+        canvas
+          ..save()
+          ..translate(center.dx, center.dy)
+          ..rotate(hs.angle)
+          ..drawOval(rect.inflate(inflate), paint)
+          ..restore();
       }
     }
   }
@@ -454,6 +517,8 @@ class _AnalysisPanel extends StatelessWidget {
     );
     final primaryName =
         primaryKey.isEmpty ? '—' : (_muscleJpNames[primaryKey] ?? primaryKey);
+    final activatedNames =
+        activated.map((e) => _muscleJpNames[e.key] ?? e.key).join('・');
     final restHint = primaryKey.isEmpty
         ? '記録が増えると、次に休ませたい部位が見えてきます。'
         : '次回は$primaryNameを休ませるか、軽めにすると続けやすくなります。';
@@ -493,8 +558,6 @@ class _AnalysisPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppColors.gapL),
-        _micro('刺激部位'),
-        const SizedBox(height: 4),
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -510,12 +573,31 @@ class _AnalysisPanel extends StatelessWidget {
             const SizedBox(width: 4),
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                '部位',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  fontSize: 12,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '部位',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      activatedNames.isEmpty ? '—' : activatedNames,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.52),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
