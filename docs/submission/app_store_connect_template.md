@@ -217,9 +217,13 @@ TestFlight でアップロード済みのビルドを選択：
 7. 「設定」タブで利用規約・プライバシーポリシーを確認する
 
 サーバー API:
+- ベース URL: https://muscle-mate-api.onrender.com
 - POST /workout/generate でメニュー生成
+- POST /workout/next で次回の進行提案
+- POST /workout/advice で論文ベースのアドバイス取得
+- GET /health でヘルスチェック
 - データは永続保存しない（リクエストごとに破棄）
-- HTTPS のみ
+- HTTPS (TLS) のみ
 ```
 
 ### Attachment（任意）
