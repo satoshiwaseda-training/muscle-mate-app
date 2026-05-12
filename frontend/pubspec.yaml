@@ -1,7 +1,7 @@
 name: muscle_mate
 description: ルールベースの筋トレメニュー生成アプリ（計画書 v5）。外部 AI は任意機能・既定オフ。
 publish_to: 'none'
-version: 1.1.0+2
+version: 1.0.0+1
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
