@@ -1,0 +1,41 @@
+# Render Infrastructure as Code
+#
+# このファイルを GitHub の main ブランチに push しておくと、Render が自動で
+# 認識して muscle-mate-api サービスを作成・更新する。手動ダッシュボード操作
+# は最小限で済む。
+#
+# 参考: https://render.com/docs/blueprint-spec
+#
+# 初回デプロイ手順:
+#   1. Render に GitHub アカウントでサインアップ
+#   2. New + → Blueprint → muscle-mate-app リポジトリを選択
+#   3. Render が render.yaml を読んでサービス自動作成
+#   4. 5〜10 分でデプロイ完了、HTTPS 付きの URL が発行される
+
+services:
+  - type: web
+    name: muscle-mate-api
+    runtime: python
+    region: singapore # 日本に近いリージョン
+    plan: free        # 無料プラン (15 分アイドルでスリープ)
+    rootDir: backend  # FastAPI アプリは backend/ サブディレクトリ内
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      - key: APP_ENV
+        value: production
+      - key: LLM_PROVIDER
+        value: noop
+      - key: EXTERNAL_AI_BILLING_MODE
+        value: free_only
+      # ネイティブ iOS アプリは Origin ヘッダを送らないため CORS は本来不要だが、
+      # main.py の APP_ENV=production チェックで ALLOWED_ORIGINS の設定が
+      # 必須となっているため、Web プレビュー用のオリジンを入れて起動を成功させる。
+      - key: ALLOWED_ORIGINS
+        value: https://satoshiwaseda-training.github.io,http://127.0.0.1:8080,http://localhost:8080
+      # 構造化ログを有効化 (v5 §11.4)
+      - key: LOG_REQUEST_BODY
+        value: "false"
