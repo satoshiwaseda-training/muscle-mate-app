@@ -16,7 +16,7 @@ App Store 申請に必要な実務ドキュメント一式。Apple Developer Pro
 - Bundle ID: `io.github.satoshiwaseda-training.musclemate`
 - Privacy Policy URL: https://satoshiwaseda-training.github.io/muscle-mate-app/legal/privacy_policy.html
 - Support URL: https://satoshiwaseda-training.github.io/muscle-mate-app/legal/support.html
-- 開発者表示名（Public Name）: `Muscle Musician`
+- 開発者表示名（Team Name / App Store 販売者表記）: `SATOSHI Takabayashi` （Apple Developer Program に登録された Legal Name と一致）
 - バックエンド本番 URL: **未確定**（W2 で確定後、提出計画書に記載）
 
 ## 提出までのフロー

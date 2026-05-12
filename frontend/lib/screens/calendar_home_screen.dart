@@ -1741,7 +1741,7 @@ class _AppDrawer extends StatelessWidget {
                   context: context,
                   applicationName: 'Muscle Mate',
                   applicationVersion: 'v1.0.0',
-                  applicationLegalese: '© Muscle Musician\n\n筋トレをもっと気軽に楽しく\n'
+                  applicationLegalese: '© 2026 Satoshi Takabayashi\n\n筋トレをもっと気軽に楽しく\n'
                       'GitHub: github.com/satoshiwaseda-training/muscle-mate-app',
                 );
               },

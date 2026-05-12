@@ -147,7 +147,7 @@ https://satoshiwaseda-training.github.io/muscle-mate-app/
 
 #### Copyright（任意）
 ```
-© 2026 Muscle Musician
+© 2026 Satoshi Takabayashi
 ```
 
 ---
@@ -262,15 +262,15 @@ TestFlight でアップロード済みのビルドを選択：
 
 ---
 
-## 11. Public Name の設定（重要）
+## 11. 販売者名表記について
 
-プライバシーポリシーで **Muscle Musician** を開発者表記としているので、App Store の販売者名も合わせる：
+Apple Developer Program 個人開発者の場合、**App Store の「販売者：◯◯」欄には Apple Developer Program に登録した Team Name（= Legal Name）がそのまま表示される**仕様。
 
-1. App Store Connect → 右上のあなたのアカウント
-2. **Public Name** 欄に：
-   ```
-   Muscle Musician
-   ```
-3. 保存
+本アプリの場合：
+- Team Name: `SATOSHI Takabayashi`
+- プライバシーポリシー §1: 「高林 聡（以下「開発者」）」（同一人物）
+- About ダイアログ: 「© 2026 Satoshi Takabayashi」
 
-これをやらないと、App Store の「販売者：◯◯」欄に**実名**が出てしまい、プライバシーポリシーと不一致になる可能性あり。
+販売者名・プライバシーポリシー・著作権表記すべてが**同一人物の表記で揃っており**、審査担当者から「販売者と開発者が違う」と指摘される心配なし。
+
+> 💡 別名（DBA / 屋号）を表示したい場合は Apple Developer Support への申請が必要だが、個人開発者には基本的に承認されない。v1.0 では Legal Name 統一が最もシンプルで安全。
