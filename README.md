@@ -65,8 +65,7 @@ APP_ENV=development LLM_PROVIDER=noop \
 cd frontend
 flutter pub get
 flutter build web --release \
-  --dart-define=API_BASE_URL=http://127.0.0.1:8000 \
-  --dart-define=ENABLE_EXTERNAL_AI=false
+  --dart-define=API_BASE_URL=http://127.0.0.1:8000
 python3 -m http.server 8080 --directory build/web
 ```
 
@@ -112,8 +111,7 @@ Apple Developer Program 加入後、Mac で：
 ```bash
 cd frontend
 flutter build ipa --release \
-  --dart-define=API_BASE_URL=https://muscle-mate-api.onrender.com \
-  --dart-define=ENABLE_EXTERNAL_AI=false
+  --dart-define=API_BASE_URL=https://muscle-mate-api.onrender.com
 ```
 
 出力先：`build/ios/ipa/*.ipa` → Transporter.app または Xcode Organizer で App Store Connect へアップロード。

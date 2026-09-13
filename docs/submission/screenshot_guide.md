@@ -20,8 +20,7 @@ App Store 提出に必要な **5 枚のスクリーンショット**を Mac 上�
 ```bash
 cd /Users/User/Desktop/Claude/muscle-mate-app/frontend
 flutter run -d "iPhone 16 Pro Max" --release \
-  --dart-define=API_BASE_URL=https://muscle-mate-api.onrender.com \
-  --dart-define=ENABLE_EXTERNAL_AI=false
+  --dart-define=API_BASE_URL=https://muscle-mate-api.onrender.com
 ```
 
 > 💡 ローカル開発で撮りたい場合は `--dart-define=API_BASE_URL=http://127.0.0.1:8000` に置換。提出スクショは本番 URL で撮影が望ましい（万一の挙動差分を避けるため）。

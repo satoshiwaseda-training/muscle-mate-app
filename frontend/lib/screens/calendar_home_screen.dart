@@ -14,6 +14,7 @@ import 'plan_generator_screen.dart';
 import 'manual_workout_builder_screen.dart';
 import 'recovery_hub_screen.dart';
 import 'history_screen.dart';
+import 'how_to_screen.dart';
 import 'settings_screen.dart';
 import 'privacy_policy_screen.dart';
 import 'citations_screen.dart';
@@ -1675,6 +1676,18 @@ class _AppDrawer extends StatelessWidget {
             ),
 
             // ── メニュー項目 ─────────────────────────────────────────
+            // やり方（使い方動画）は最上段に固定する
+            _DrawerTile(
+              icon: Icons.play_circle_outline,
+              label: 'やり方',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HowToScreen()),
+                );
+              },
+            ),
             _DrawerTile(
               icon: Icons.history,
               label: '履歴',

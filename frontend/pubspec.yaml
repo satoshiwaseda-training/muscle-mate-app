@@ -17,6 +17,7 @@ dependencies:
   share_plus: ^10.1.4           # SNS 共有・画像のシェア (iOS Native Share Sheet)
   path_provider: ^2.1.5         # 共有用一時ファイルの保存先
   cross_file: ^0.3.4+2          # share_plus が要求する共通ファイル型
+  url_launcher: ^6.3.1          # やり方動画 (YouTube) を外部アプリ / ブラウザで開く
 
 dev_dependencies:
   flutter_test:

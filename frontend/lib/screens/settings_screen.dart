@@ -1,18 +1,15 @@
 // 設定画面: レベル・BIG3 MAX・使用器具を保存
+//
+// 外部 AI 補強のお試しトグル（ENABLE_EXTERNAL_AI で出し分けていた UI）は撤去済み。
+// api_service.dart の X-External-AI-Optin ヘッダは常に false を送る。
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart' show AppColors;
 import '../models/workout_plan.dart';
 import '../services/local_storage_service.dart';
 import 'advice_screen.dart';
+import 'how_to_screen.dart';
 import 'privacy_policy_screen.dart';
-
-// 提出計画書 v1.3 §5.1: v1.0 では外部 AI トグル UI を非表示にする。
-// SharedPreferences のキー (external_ai_optin) や api_service.dart の
-// X-External-AI-Optin ヘッダ送信ロジックは残し、v1.1 で UI を再露出するだけで戻せるようにする。
-// ビルド時に --dart-define=ENABLE_EXTERNAL_AI=true を渡したときだけトグル UI が出る。
-const bool kEnableExternalAi =
-    bool.fromEnvironment('ENABLE_EXTERNAL_AI', defaultValue: false);
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -38,7 +35,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     Equipment.bodyweight,
     Equipment.cable,
   };
-  bool _externalAiOptin = false;  // v5: 外部 AI 補強の同意状態（既定オフ）
   bool _loading = true;
 
   @override
@@ -80,82 +76,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           .toSet();
       _loading = false;
     });
-    // 外部 AI 同意状態（SharedPreferences から読み込み）
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        _externalAiOptin = prefs.getBool('external_ai_optin') ?? false;
-      });
-    }
-  }
-
-  /// 外部 AI 補強を有効にする際は、内容を再確認するダイアログを出してから有効化する。
-  Future<void> _toggleExternalAi(bool enable) async {
-    if (enable) {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: AppColors.surface,
-          icon: const Icon(Icons.psychology_outlined,
-              color: AppColors.primary, size: 36),
-          title: const Text(
-            '外部 AI 補強を有効にしますか？',
-            style: TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w800,
-                fontSize: 18),
-          ),
-          content: const SingleChildScrollView(
-            child: Text(
-              '本機能を有効にすると、メニュー生成時に以下の 6 項目のみが Groq, Inc.（米国）の '
-              'AI 推論サービスに送信されます：\n\n'
-              '• 目標 / レベル / 使用器具\n'
-              '• 週頻度 / セッション時間\n'
-              '• 生成された種目名一覧\n\n'
-              '【送信されない情報】\n'
-              '年齢・性別・体重・BIG3 数値・ターゲット筋群・優先種目・トレーニング歴・'
-              '怪我履歴・自由記述・実施記録・痛み有無・RPE\n\n'
-              '【自動スキップ】\n'
-              '怪我・自由記述・部位指定などが入力されたメニュー生成では、'
-              '本機能を有効化していても外部 AI への送信は自動的に行われません。\n\n'
-              '【撤回】\n'
-              '設定画面でいつでもオフにできます。撤回前に既に送信された分の'
-              '遡及削除は保証されません。',
-              style: TextStyle(
-                color: AppColors.textPrimary, fontSize: 13, height: 1.5),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('キャンセル'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('同意して有効化'),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true) return;
-    }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('external_ai_optin', enable);
-    if (enable) {
-      await prefs.setString(
-          'external_ai_optin_date', DateTime.now().toIso8601String());
-    }
-    if (mounted) {
-      setState(() => _externalAiOptin = enable);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(enable
-              ? '外部 AI 補強を有効にしました'
-              : '外部 AI 補強を無効にしました（以後の送信は停止）'),
-          backgroundColor: AppColors.primary,
-        ),
-      );
-    }
   }
 
   void _showContactDialog(BuildContext context) {
@@ -272,6 +192,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                // ── やり方（使い方動画）— 設定の最上段に固定 ─────────────
+                _Section(
+                  title: 'やり方',
+                  icon: Icons.play_circle_outline,
+                  subtitle: 'アプリの使い方を動画で確認できます',
+                  child: _LinkRow(
+                    icon: Icons.ondemand_video_outlined,
+                    label: 'やり方動画を見る',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const HowToScreen()),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
                 _Section(
                   title: '目的と続け方',
                   icon: Icons.favorite_outline,
@@ -465,64 +402,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-
-                // ── 外部 AI 補強トグル（v5・既定オフ）──────────────────────
-                // v1.0 提出ビルドでは kEnableExternalAi=false のため UI は表示されない。
-                // SharedPreferences のキーと api_service.dart の送信ヘッダは温存。
-                if (kEnableExternalAi) ...[
-                  _Section(
-                    title: '外部 AI 補強（任意・既定オフ）',
-                    icon: Icons.psychology_outlined,
-                    subtitle: 'コーチングコメントの文章のみ補強します。'
-                        '年齢・体重・怪我・記録は送信しません',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            _externalAiOptin
-                                ? '有効になっています'
-                                : '有効化する',
-                            style: const TextStyle(
-                                color: AppColors.textPrimary,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14),
-                          ),
-                          subtitle: Text(
-                            _externalAiOptin
-                                ? '送信されるのは目標・レベル・器具・頻度・時間・種目名のみ'
-                                : '有効化すると確認ダイアログが表示されます',
-                            style: const TextStyle(
-                                color: AppColors.textSecond, fontSize: 11),
-                          ),
-                          value: _externalAiOptin,
-                          activeThumbColor: AppColors.primary,
-                          onChanged: _toggleExternalAi,
-                        ),
-                        const SizedBox(height: 4),
-                        GestureDetector(
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const PrivacyPolicyScreen()),
-                          ),
-                          child: Text(
-                            'プライバシーポリシー §4 を読む →',
-                            style: TextStyle(
-                              color: AppColors.primaryDim,
-                              fontSize: 11,
-                              decoration: TextDecoration.underline,
-                              decorationColor:
-                                  AppColors.primaryDim.withValues(alpha: 0.5),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                ],
 
                 // ── 保存ボタン ─────────────────────────────────────────────
                 FilledButton.icon(
