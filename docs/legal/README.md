@@ -18,5 +18,8 @@
 1. `privacy_policy_v1.md` を編集（最終更新日も更新）
 2. アプリ内 `privacy_policy_screen.dart` の `_section` 引数を Markdown に合わせて修正
 3. `privacy_policy.html` を Markdown に合わせて修正
-4. push して GitHub Pages の反映を待つ（30 秒〜 1 分）
+   （2026-09-26 から：Markdown に日本語と英語を書き、HTML と `app_strings.dart` の `privacy.*` は
+   生成スクリプトで作る。手で直すときも 3 か所の文を同じにする）
+4. push して GitHub Pages の反映を待つ（30 秒〜 1 分）。⚠️ Pages は **`main` ブランチの `/docs`** から
+   公開される。作業ブランチに入れただけでは公開されない（2026-05-12 の版のまま 9 月まで公開されていた）
 5. アプリも再ビルド（dart-define を変えたとき）
