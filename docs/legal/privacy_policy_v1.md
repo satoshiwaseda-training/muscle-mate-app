@@ -5,7 +5,7 @@
 > GitHub Pages は `main` ブランチの `/docs` から公開）の唯一のソースです。** どちらを更新する場合も、
 > 必ずこの Markdown を先に更新し、両方の表示先に同じ本文を反映してください。
 
-**最終更新日**: 2026年10月25日
+**最終更新日**: 2026年11月2日
 
 ---
 
@@ -50,11 +50,12 @@ Muscle Mate（以下「本アプリ」）は、高林 聡（以下「開発者�
 
 「歩く・走る」の機能は、利用者が許可した場合に限り、次の情報を端末の中で使います。いずれも開発者や第三者へ送信せず、広告・解析・販売には使いません。
 
-- 歩数、歩く・走るの運動（時間・距離）：iPhone のヘルスケア（HealthKit）、Android のヘルスコネクトから読み取ります（書き込みはしません）。今日の歩数の表示（「歩く・走る」の画面と庭）と、利用者が選んだ運動の記録への取り込みに使います。
+- 歩数、歩く・走るの運動（時間・距離）：iPhone のヘルスケア（HealthKit）、Android のヘルスコネクトから読み取ります（iPhone・Android のアプリは書き込みません。Apple Watch 用アプリの書き込みは下の「Apple Watch 用アプリ」のとおりです）。今日の歩数の表示（「歩く・走る」の画面と庭）と、利用者が選んだ運動の記録への取り込みに使います。
 - 位置情報（GPS）：屋外で歩く・走るときの距離の計算に使います。計測を始めてから終えるまでだけ受け取り（画面を消していても計測中は受け取ります。その間、Android では通知を、iPhone では位置情報を使っている表示を出します）、位置の座標は保存しません。「常に許可」のバックグラウンドの位置情報の権限は求めません。
 - 身体活動（歩数計）：計測中や「歩く・走る」の画面での歩数を数えるのに使います。
 - 心拍数（ヘルスケア・ヘルスコネクト）：心拍の目安（安静時・最大・楽に走る上限）と、走っている間の心拍数の表示・声の案内に使います。心拍数、安静時心拍数、ランのワークアウトの最高心拍数、生年月日（iPhone のみ。年齢の計算に生まれた年だけを使います）を読み取ります。走っている間は新しい心拍数を数秒ごとに読み取り、本アプリで記録した走りの時間帯の心拍数も読み取ります。
-- 心拍計・Apple Watch・イヤホン：利用者が選んだ心拍計（Bluetooth の胸ベルトなど）に接続して心拍数を受け取ります（Bluetooth の許可を使います）。Apple Watch に本アプリの Apple Watch 用アプリがある場合は、Apple Watch で測った心拍数を iPhone で受け取ります（Apple Watch と iPhone の間だけのやり取りです）。iPhone では、AirPods Pro 3 などのイヤホンやセンサーの心拍数を受け取るためにワークアウトを動かします。そのためにヘルスケアの「ワークアウト」の書き込みの許可を求めますが、ワークアウトはヘルスケアに保存せず、走り終えたら捨てます。
+- 心拍計・Apple Watch・イヤホン：利用者が選んだ心拍計（Bluetooth の胸ベルトなど）に接続して心拍数を受け取ります（Bluetooth の許可を使います）。iPhone で走るとき、Apple Watch に本アプリの Apple Watch 用アプリがある場合は、Apple Watch で測った心拍数を iPhone で受け取ります（Apple Watch と iPhone の間だけのやり取りです）。iPhone では、AirPods Pro 3 などのイヤホンやセンサーの心拍数を受け取るためにワークアウトを動かします。そのためにヘルスケアの「ワークアウト」の書き込みの許可を求めますが、iPhone で記録した回のワークアウトはヘルスケアに保存せず、走り終えたら捨てます。
+- Apple Watch 用アプリ：iPhone で開いた筋トレの記録画面の内容（種目名・セット・重さと回数の目安・休憩の秒数）を Apple Watch に表示し、Apple Watch で押したスタート・終了・完了を iPhone の記録に反映します。Apple Watch だけで歩く・走るを記録するときは、計測中だけ Apple Watch の位置情報（GPS）と心拍数を使い、距離・時間・ラップ・心拍数の要約を iPhone の本アプリへ送って記録します（位置の座標は保存も送信もしません。やり取りは Apple Watch とペアリングした iPhone の間だけです）。Apple Watch で記録した筋トレ・歩く・走るは、ワークアウト（時間・アクティブエネルギー・距離）としてヘルスケアに保存します。同じ運動がヘルスケアからの取り込みで二重にならないようにしています。
 
 走っている間の心拍数は、平均・最大などの要約だけを残します。ヘルスケア・ヘルスコネクトから読み取った情報（心拍数の要約・安静時心拍数・生まれた年を含む）は、端末のバックアップの対象から外した保存場所に置きます。
 
@@ -96,7 +97,7 @@ Muscle Mate（以下「本アプリ」）は、高林 聡（以下「開発者�
 
 # Privacy Policy (English)
 
-**Last updated**: October 25, 2026
+**Last updated**: November 2, 2026
 
 ## 1. Introduction
 
@@ -139,11 +140,12 @@ The camera is used to read machine nameplates and treadmill displays, only when 
 
 The Walk & Run feature uses the following on your device only when you allow it. None of it is sent to the Developer or any third party, and none of it is used for advertising, analytics or sale.
 
-- Steps and walking/running workouts (duration and distance): read from Apple Health (HealthKit) on iPhone and Health Connect on Android (the App never writes). Used to show today's steps (on the Walk & Run screen and in the garden) and to add workouts you select to your records.
+- Steps and walking/running workouts (duration and distance): read from Apple Health (HealthKit) on iPhone and Health Connect on Android (the iPhone and Android apps never write; for what the Apple Watch app writes, see "Apple Watch app" below). Used to show today's steps (on the Walk & Run screen and in the garden) and to add workouts you select to your records.
 - Location (GPS): used to calculate the distance of an outdoor walk or run. Received only from the start to the end of a session (including while the screen is off during a session; meanwhile Android shows a notification and iPhone shows that location is in use). Coordinates are not stored. The "Always" background location permission is not requested.
 - Physical activity (step counter): used to count steps during a session and on the Walk & Run screen.
 - Heart rate (Apple Health / Health Connect): used for your heart-rate guide (resting, maximum and the easy-running limit) and to show and announce your heart rate while you run. The App reads heart rate, resting heart rate, the maximum heart rate of running workouts, and date of birth (iPhone only; only the birth year is used, to calculate your age). While you run, it reads new heart-rate values every few seconds, and it also reads heart rate for the times of runs you recorded in the App.
-- Heart-rate monitors, Apple Watch and earbuds: the App connects to a heart-rate monitor you choose (such as a Bluetooth chest strap) to receive your heart rate (using the Bluetooth permission). If the App's Apple Watch app is installed, heart rate measured on your Apple Watch is received on your iPhone (exchanged only between your Apple Watch and iPhone). On iPhone, the App runs a workout to receive heart rate from earbuds such as AirPods Pro 3 or other sensors. For this it asks for permission to write workouts to Apple Health, but it never saves the workout to Apple Health and discards it when you finish.
+- Heart-rate monitors, Apple Watch and earbuds: the App connects to a heart-rate monitor you choose (such as a Bluetooth chest strap) to receive your heart rate (using the Bluetooth permission). When you run with your iPhone and the App's Apple Watch app is installed, heart rate measured on your Apple Watch is received on your iPhone (exchanged only between your Apple Watch and iPhone). On iPhone, the App runs a workout to receive heart rate from earbuds such as AirPods Pro 3 or other sensors. For this it asks for permission to write workouts to Apple Health, but workouts recorded on iPhone are never saved to Apple Health and are discarded when you finish.
+- Apple Watch app: shows the strength workout you opened on iPhone (exercise names, sets, target weight and reps, and rest seconds) on your Apple Watch, and applies Start, End and Done taps on the watch to your iPhone log. When you record a walk or run with your Apple Watch alone, the watch uses its location (GPS) and heart rate only during the activity, and sends the distance, time, laps and a heart-rate summary to the App on your iPhone to record it (coordinates are never stored or sent, and data is exchanged only between your Apple Watch and its paired iPhone). Strength workouts, walks and runs recorded on Apple Watch are saved to Apple Health as workouts (duration, active energy and distance), and the App avoids counting the same activity twice when importing from Apple Health.
 
 For heart rate during a run, only a summary (such as average and maximum) is kept. Information read from Apple Health or Health Connect (including heart-rate summaries, resting heart rate and birth year) is kept in storage excluded from device backups.
 
